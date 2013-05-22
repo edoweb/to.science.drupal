@@ -165,6 +165,20 @@ function edoweb_basic_uri($basic) {
  * Implements hook_menu().
  */
 function edoweb_menu() {
+
+  // Configuration section for Edoweb modules
+  $items['admin/config/edoweb'] = array(
+    'title' => 'Edoweb',
+    'description' => 'Configuration options for the Edoweb modules',
+    'position' => 'left',
+    'weight' => -100,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administer site configuration'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  // Module landing page
   $items['edoweb/resource'] = array(
     'title' => t('Edoweb'),
     'page callback' => 'edoweb_info_page',
@@ -407,9 +421,10 @@ function edoweb_basic_view($entity, $view_mode = 'tweaky') {
     '#weight' => -1,
   );
 
+  $edoweb_api_host = variable_get('edoweb_api_host');
   $entity->content['remote_id'] = array(
     '#type' => 'item',
-    '#markup' => l('View in Edoweb API', "http://orthos.hbz-nrw.de/resources/{$entity->remote_id}"),
+    '#markup' => l('View in Edoweb API', "http://{$edoweb_api_host}/resources/{$entity->remote_id}"),
     '#weight' => -1,
   );
 

@@ -19,9 +19,11 @@ Clone libraries:
 
 Download non Drupal-core dependency modules:
 
+    $ cd sites/all/modules
     $ curl http://ftp.drupal.org/files/projects/entity-7.x-1.1.tar.gz | tar xz
     $ curl http://ftp.drupal.org/files/projects/entityreference-7.x-1.0.tar.gz | tar xz
 
 Activate "Edoweb Entities" module at (e.g. at
 <http://localhost/drupal/?q=admin/modules>) and confirm activation of
-dependency modules.
+dependency modules. Finally, set the host, user and password for the API
+at <http://localhost/drupal/?q=admin/config/edoweb/storage>.

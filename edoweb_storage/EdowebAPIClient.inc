@@ -23,19 +23,26 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
   /*
    * The URL of the Edoweb API
    */
-  private $__edoweb_api_host = 'orthos.hbz-nrw.de';
+  private $__edoweb_api_host;
 
   /**
    * The username for the Edoweb API
    *
    */
-  private $__edoweb_api_user = 'fedoraAdmin';
+  private $__edoweb_api_user;
 
   /**
    * The password for the Edoweb API
    *
    */
-  private $__edoweb_api_pass = 'fedoraAdmin1';
+  private $__edoweb_api_pass;
+
+  public function __construct() {
+    // Fetch credentials from drupal settings
+    $this->__edoweb_api_host = variable_get('edoweb_api_host');
+    $this->__edoweb_api_user = variable_get('edoweb_api_user');
+    $this->__edoweb_api_pass = variable_get('edoweb_api_password');
+  }
 
   /*
    * Load an entity from the API.
@@ -103,7 +110,7 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
           $entity->remote_id
         );
         if ($this->_http_multipart_put($http_url, $file_path, $file->filemime)) {
-          $file->uri = "http://orthos.hbz-nrw.de/resources/{$entity->remote_id}/data";
+          $file->uri = "http://{$this->__edoweb_api_host}/resources/{$entity->remote_id}/data";
           file_save($file);
           unlink($file_path);
         }

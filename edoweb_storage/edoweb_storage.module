@@ -24,6 +24,68 @@
  */
 
 /**
+* Implement hook_menu().
+* Settings for edoweb_storage are configured here.
+*/
+function edoweb_storage_menu() {
+  $items = array();
+  $items['admin/config/edoweb/storage'] = array(
+    'title' => 'Edoweb Storage',
+    'description' => 'Configuration for the Edoweb Storage module.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('edoweb_storage_configuration_form'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+ return $items;
+}
+
+/**
+* Create and display the configuration settings form.
+*/
+function edoweb_storage_configuration_form($form, &$form_state) {
+
+  // Text field for api host.
+  $form['edoweb_api_host'] = array(
+    '#type' => 'textfield',
+    '#default_value' => variable_get(
+      'edoweb_api_host',
+      'orthos.hbz-nrw.de'
+    ),
+    '#title' => t('API host'),
+    '#description' => t('The hostname or IP address of the API, without leading http://'),
+    '#size' => 40,
+    '#maxlength' => 120,
+    '#required' => TRUE,
+  );
+
+  // Text field for api user.
+  $form['edoweb_api_user'] = array(
+    '#type' => 'textfield',
+    '#default_value' => variable_get('edoweb_api_user'),
+    '#title' => t('API user'),
+    '#description' => t('The username to authorize with.'),
+    '#size' => 40,
+    '#maxlength' => 120,
+    '#required' => TRUE,
+  );
+
+  // Password field for api user.
+  $form['edoweb_api_password'] = array(
+    '#type' => 'password',
+    '#default_value' => variable_get('edoweb_api_password'),
+    '#title' => t('API password'),
+    '#description' => t('The password to authorize with.'),
+    '#size' => 40,
+    '#maxlength' => 120,
+    '#required' => TRUE,
+  );
+
+  return system_settings_form($form);
+}
+
+/**
  * Implements hook_field_storage_info().
  */
 function edoweb_storage_field_storage_info() {
