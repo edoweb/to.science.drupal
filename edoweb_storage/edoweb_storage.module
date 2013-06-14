@@ -30,7 +30,7 @@
 function edoweb_storage_menu() {
   $items = array();
   $items['admin/config/edoweb/storage'] = array(
-    'title' => 'Edoweb Storage',
+    'title' => 'Storage',
     'description' => 'Configuration for the Edoweb Storage module.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('edoweb_storage_configuration_form'),
@@ -80,6 +80,13 @@ function edoweb_storage_configuration_form($form, &$form_state) {
     '#size' => 40,
     '#maxlength' => 120,
     '#required' => TRUE,
+  );
+
+  // Checkbox for debugging mode
+  $form['edoweb_api_debug'] = array(
+    '#type' => 'checkbox',
+    '#default_value' => variable_get('edoweb_api_debug'),
+    '#title' => t('Show debugging output'),
   );
 
   return system_settings_form($form);
@@ -313,11 +320,16 @@ function _edoweb_storage_entity_serialize_rdf($entity, $rdf_subject, $rdf_serial
       $items = $wrapper->{$field_name}->value();
     } catch (EntityMetadataWrapperException $e) {
       // Field is not available for this entity
-      //drupal_set_message($e->getMessage(), 'error');
       continue;
     }
-    if (!is_array($items)) $items = array($items);
-    if (TRUE === empty($items)) continue;
+    if (is_null($items) || empty($items)) {
+      // Field is available for this entity,
+      // but does not have value(s).
+      continue;
+    }
+    if (!is_array($items)) {
+      $items = array($items);
+    }
     // Special case: handle file fields
     if ('field_edoweb_file' == $field_name) {
       foreach ($items as $item) {
@@ -359,7 +371,12 @@ function _edoweb_storage_entity_deserialize_rdf($entity, $rdf_subject, $rdf_data
     EDOWEB_ENTITY_TYPE, _edoweb_storage_entity_get_bundle($entity)
   );
   $rdf_model = new LibRDF_Model(new LibRDF_Storage());
-  $rdf_model->loadStatementsFromString($rdf_parser, $rdf_data);
+  try {
+    $rdf_model->loadStatementsFromString($rdf_parser, $rdf_data);
+  } catch (LibRDF_Error $e) {
+    // TODO: log errors
+    // drupal_set_message($e->getMessage(), 'error');
+  }
   LibRDF_LiteralNode::setPlainOutput(true);
 
   // Skip first element, these are the rdf:type definitions
@@ -377,7 +394,12 @@ function _edoweb_storage_entity_deserialize_rdf($entity, $rdf_subject, $rdf_data
           array(':uri' => substr($value, 1, -1))
         )->fetchField();
         $file = file_load($file_id);
-        $wrapper->{$field_name}[] = (array) $file;
+        try {
+          $wrapper->{$field_name}[] = (array) $file;
+        } catch (EntityMetadataWrapperException $e) {
+          // TODO: log errors
+          // drupal_set_message($e->getMessage(), 'error');
+        }
       }
     } else {
       foreach ($rdf_model->getTargets($rdf_subject, $rdf_predicate) as $value) {
@@ -487,3 +509,26 @@ function _edoweb_expand_curie($curie) {
   list($curie_prefix, $curie_local) = explode(':', $curie);
   return $rdf_namespaces[$curie_prefix] . $curie_local;
 }
+
+function _edoweb_file_save(stdClass $file) {
+  $file->timestamp = REQUEST_TIME;
+
+  module_invoke_all('file_presave', $file);
+  module_invoke_all('entity_presave', $file, 'file');
+
+  if (empty($file->fid)) {
+    drupal_write_record('file_managed', $file);
+    // Inform modules about the newly added file.
+    module_invoke_all('file_insert', $file);
+    module_invoke_all('entity_insert', $file, 'file');
+  }
+  else {
+    drupal_write_record('file_managed', $file, 'fid');
+    // Inform modules that the file has been updated.
+    module_invoke_all('file_update', $file);
+    module_invoke_all('entity_update', $file, 'file');
+  }
+
+  return $file;
+}
+

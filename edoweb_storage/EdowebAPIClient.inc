@@ -51,6 +51,65 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
    *   The drupal entity to load data into
    */
   public function load($entity) {
+    // Fetch and add relations and files
+    $http_url = sprintf(
+      'http://%s:%s@%s/resources/%s/about',
+      $this->__edoweb_api_user,
+      $this->__edoweb_api_pass,
+      $this->__edoweb_api_host,
+      $entity->remote_id
+    );
+    $http_response = $this->_http_get($http_url);
+    if (500 != $http_response->code) {
+      $wrapper = entity_metadata_wrapper(EDOWEB_ENTITY_TYPE, $entity);
+      $repository_data = json_decode($http_response->data);
+      // Fetch and add children
+      if (property_exists($repository_data, 'hasPart')) {
+        if (!is_array($repository_data->hasPart)) {
+          $children = array($repository_data->hasPart);
+        } else {
+          $children = $repository_data->hasPart;
+        }
+        foreach ($children as $remote_url) {
+          $remote_id = substr($remote_url, strrpos($remote_url, '/') + 1);
+          $local_id = db_query(
+            'SELECT local_id FROM {edoweb_basic} WHERE remote_id = :remote_id',
+            array(':remote_id' => $remote_id)
+          )->fetchField();
+          try {
+            if ($wrapper->field_edoweb_child instanceOf EntityValueWrapper) {
+              $wrapper->field_edoweb_child = $local_id;
+            } else {
+              $wrapper->field_edoweb_child[] = $local_id;
+            }
+          } catch (EntityMetadataWrapperException $e) {
+            // TODO: log errors
+            //drupal_set_message($e->getMessage(), 'error');
+          }
+        }
+      }
+      // Fetch and add files.
+      if (property_exists($repository_data, 'pdfUrl')) {
+        $file_url = $repository_data->pdfUrl;
+        $file_id = db_query(
+          'SELECT fid FROM {file_managed} WHERE uri = :uri',
+          array(':uri' => $file_url)
+        )->fetchField();
+        if ($file_id) {
+          $file = file_load($file_id);
+          try {
+            $wrapper->field_edoweb_file[] = (array) $file;
+          } catch (EntityMetadataWrapperException $e) {
+            // TODO: log errors
+            // drupal_set_message($e->getMessage(), 'error');
+          }
+        } else {
+          // FIXME: why is the file not present?
+        }
+      }
+    }
+
+    // Fetch and add descriptive metadata
     $http_url = sprintf(
       'http://%s:%s@%s/resources/%s/metadata',
       $this->__edoweb_api_user,
@@ -111,7 +170,7 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
         );
         if ($this->_http_multipart_put($http_url, $file_path, $file->filemime)) {
           $file->uri = "http://{$this->__edoweb_api_host}/resources/{$entity->remote_id}/data";
-          file_save($file);
+          _edoweb_file_save($file);
           unlink($file_path);
         }
       }
@@ -154,6 +213,128 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
     $http_response = $this->_http_delete($http_url);
   }
 
+  /*
+   * Import an entity based on its remote id.
+   */
+  public function importEntity($remote_id, $import_mode = 'append', $metadata_required = FALSE) {
+
+    // Check for metadata
+    $http_url = sprintf(
+      'http://%s:%s@%s/resources/%s/metadata',
+      $this->__edoweb_api_user,
+      $this->__edoweb_api_pass,
+      $this->__edoweb_api_host,
+      $remote_id
+    );
+    $http_response = $this->_http_get($http_url);
+    // TODO: Check for HTTP 404 instead when API supports this
+    if (500 == $http_response->code && 1 == $metadata_required) {
+      return;
+    }
+
+    // Import the entity itself
+    $http_url = sprintf(
+      'http://%s:%s@%s/resources/%s/about',
+      $this->__edoweb_api_user,
+      $this->__edoweb_api_pass,
+      $this->__edoweb_api_host,
+      $remote_id
+    );
+    $http_response = $this->_http_get($http_url);
+    if (200 != $http_response->code) {
+      return;
+    }
+    $repository_data = json_decode($http_response->data);
+    $bundle_type = $repository_data->contentType;
+    $entity = entity_get_controller('edoweb_basic')->create($bundle_type);
+    if ('overwrite' == $import_mode) {
+      $local_id = db_select('edoweb_basic')
+        ->condition('remote_id', $remote_id, '=')
+        ->fields('edoweb_basic', array('local_id'))
+        ->execute()
+        ->fetchField();
+      $entity->local_id = $local_id;
+    }
+    $entity->created = time();
+    $entity->remote_id = $remote_id;
+    $primary_keys = $entity->local_id ? 'local_id' : array();
+
+    // Directly write out the entity record bypassing the controller to
+    // prevent needlessly writing objects back to the API
+    drupal_write_record('edoweb_basic', $entity, $primary_keys);
+    drupal_set_message("Imported $remote_id.");
+
+    // Fetch and add child relations.
+    if (property_exists($repository_data, 'hasPart')) {
+      if (!is_array($repository_data->hasPart)) {
+        $children = array($repository_data->hasPart);
+      } else {
+        $children = $repository_data->hasPart;
+      }
+      foreach ($children as $remote_url) {
+        $remote_id = substr($remote_url, strrpos($remote_url, '/') + 1);
+        $this->importEntity($remote_id, $import_mode, $metadata_required);
+      }
+    }
+
+    // Fetch and add files.
+    if (property_exists($repository_data, 'pdfUrl')) {
+      $file_url = $repository_data->pdfUrl;
+      $parsed_url = parse_url($file_url);
+      $auth_file_url = sprintf(
+        '%s://%s:%s@%s%s',
+        $parsed_url['scheme'],
+        $this->__edoweb_api_user,
+        $this->__edoweb_api_pass,
+        $parsed_url['host'],
+        $parsed_url['path']
+      );
+      $file_metadata = $this->_http_head($auth_file_url);
+      $file = new stdClass();
+      $file->filemime = $file_metadata->headers['content-type'];
+      $matches = array();
+      $res = preg_match('/.*filename="(.*)"/', $file_metadata->headers['content-disposition'], $matches);
+      if ($res and array_key_exists(1, $matches)) {
+        $file->filename = $matches[1];
+      } else {
+        $file->filename = t('Unnamed file');
+      }
+      $file->uri = $file_url;
+      _edoweb_file_save($file);
+    }
+  }
+
+  /*
+   * Import entities of a given bundle type.
+   */
+  public function import($bundle_type, $import_mode = 'append', $metadata_required = FALSE) {
+    // Build resource list url
+    $http_url = sprintf(
+      'http://%s:%s@%s/%s/',
+      $this->__edoweb_api_user,
+      $this->__edoweb_api_pass,
+      $this->__edoweb_api_host,
+      $bundle_type
+    );
+
+    // Fetch response
+    $http_response = $this->_http_get($http_url, 'application/json');
+
+    // Wipe existing records if requested
+    if ('clear' == $import_mode) {
+      $num_deleted = db_delete('edoweb_basic')
+        ->condition('bundle_type', $bundle_type)
+        ->execute();
+      drupal_set_message("Deleted $num_deleted resources of type $bundle_type.");
+    }
+
+    // Process resource list
+    $resource_list = json_decode($http_response->data)->list;
+    foreach ($resource_list as $remote_id) {
+      $this->importEntity($remote_id, $import_mode, $metadata_required);
+    }
+  }
+
   protected function _http_multipart_put($request_url, $file_path, $content_type = 'text/plain') {
     $data = array(
       'data' => "@$file_path",
@@ -165,12 +346,12 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: multipart/mixed'));
     $response = curl_exec($ch);
-    if (curl_errno($ch)) {
+    if (curl_errno($ch) && 1 == variable_get('edoweb_api_debug')) {
       drupal_set_message(curl_error($ch));
-      return FALSE;
     } else {
       return TRUE;
     }
+    return FALSE;
   }
 
   protected function _http_put($request_url, $request_body = '', $content_type='text/plain') {
@@ -191,9 +372,10 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
     return _edoweb_http_request($request_url, $http_options);
   }
 
-  protected function _http_get($request_url) {
+  protected function _http_get($request_url, $content_type = 'text/plain') {
     $http_options = array(
       'method' => 'GET',
+      'headers' => array('Content-Type' => $content_type),
     );
     return _edoweb_http_request($request_url, $http_options);
   }
@@ -201,6 +383,13 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
   protected function _http_delete($request_url) {
     $http_options = array(
       'method' => 'DELETE',
+    );
+    return _edoweb_http_request($request_url, $http_options);
+  }
+
+  protected function _http_head($request_url) {
+    $http_options = array(
+      'method' => 'HEAD',
     );
     return _edoweb_http_request($request_url, $http_options);
   }

@@ -77,7 +77,7 @@ function edoweb_field_field_formatter_view($entity_type, $entity, $field, $insta
   $elements = array();
   foreach ($items as $delta => $item) {
     $elements[$delta] = array(
-      '#markup' => l("Label for {$item['value']}", $item['value']),
+      '#markup' => l(_edoweb_field_field_get_label($item['value']), $item['value']),
     );
   }
   return $elements;
@@ -117,7 +117,7 @@ function edoweb_field_field_widget_form(&$form, &$form_state, $field, $instance,
         );
         $element['label'] = array(
           '#type' => 'textfield',
-          '#value' => "Label for $value",
+          '#value' => _edoweb_field_field_get_label($value),
           '#disabled' => TRUE,
         );
       } else {
@@ -132,3 +132,26 @@ function edoweb_field_field_widget_form(&$form, &$form_state, $field, $instance,
   return $element;
 }
 
+function _edoweb_field_field_get_label($resource_uri) {
+  $http_options = array(
+    'method' => 'GET',
+    'headers' => array('Accept' => 'application/rdf+xml'),
+  );
+  $http_response = _edoweb_http_request($resource_uri, $http_options);
+  $rdf_data = $http_response->data;
+  $rdf_subject = new LibRDF_URINode($resource_uri);
+  $rdf_parser = new LibRDF_Parser('rdfxml');
+  $rdf_model = new LibRDF_Model(new LibRDF_Storage());
+  $rdf_label_uri = new LibRDF_URINode('http://d-nb.info/standards/elementset/gnd#preferredNameForThePerson');
+  $rdf_resource_uri = new LibRDF_URINode($resource_uri);
+  try {
+    $rdf_model->loadStatementsFromString($rdf_parser, $rdf_data);
+    $resource_label = $rdf_model->getTarget($rdf_resource_uri, $rdf_label_uri);
+  } catch (LibRDF_Error $e) {
+    $resource_label = "Label for $resource_uri";
+  } catch (LibRDF_LookupError $e) {
+    $resource_label = "Label for $resource_uri";
+  }
+  LibRDF_LiteralNode::setPlainOutput(true);
+  return "$resource_label";
+}

@@ -121,7 +121,7 @@ function edoweb_entity_info() {
  * This function gets its name from the menu system's wildcard
  * naming conventions. For example, /path/%wildcard would end
  * up calling wildcard_load(%wildcard value). In our case defining
- * the path: edoweb/resource/basic/%edoweb_basic in
+ * the path: resource/%edoweb_basic in
  * hook_menu() tells Drupal to call edoweb_basic_load().
  *
  * @param $local_id
@@ -134,8 +134,9 @@ function edoweb_entity_info() {
  * @see edoweb_basic_load_multiple()
  * @see edoweb_menu()
  */
-function edoweb_basic_load($local_id = NULL, $reset = FALSE) {
-  $local_ids = (isset($local_id) ? array($local_id) : array());
+function edoweb_basic_load($remote_id, $reset = FALSE) {
+  $local_id = _edoweb_storage_entity_get_id(new LibRDF_URINode($remote_id));
+  $local_ids = $local_id ? array($local_id) : array();
   $basic = edoweb_basic_load_multiple($local_ids, array(), $reset);
   return $basic ? reset($basic) : FALSE;
 }
@@ -157,7 +158,7 @@ function edoweb_basic_load_multiple($local_ids = FALSE, $conditions = array(), $
  */
 function edoweb_basic_uri($basic) {
   return array(
-    'path' => "edoweb/resource/{$basic->bundle_type}/{$basic->local_id}",
+    'path' => "resource/{$basic->remote_id}",
   );
 }
 
@@ -178,63 +179,74 @@ function edoweb_menu() {
     'file path' => drupal_get_path('module', 'system'),
   );
 
-  // Module landing page
-  $items['edoweb/resource'] = array(
+  // Bulk import
+  $items['admin/config/edoweb/import'] = array(
+    'title' => 'Bulk Import',
+    'description' => 'Import objects from the Edoweb API.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('edoweb_bulk_import_form'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  // Module landing page, list entities
+  $items['resource'] = array(
     'title' => t('Edoweb'),
     'page callback' => 'edoweb_info_page',
+    'page arguments' => array('0'),
     'access arguments' => array('view any edoweb_basic entity'),
   );
 
   // The page to view our entities - needs to follow what
   // is defined in basic_uri and will use load_basic to retrieve
   // the necessary entity info.
-  $items['edoweb/resource/%/%edoweb_basic'] = array(
+  $items['resource/%edoweb_basic'] = array(
     'title callback' => 'edoweb_basic_title',
-    'title arguments' => array(3),
+    'title arguments' => array(1),
     'page callback' => 'edoweb_basic_view',
-    'page arguments' => array(3),
+    'page arguments' => array(1),
     'access arguments' => array('view any edoweb_basic entity'),
   );
 
   // 'View' tab for an individual entity page.
-  $items['edoweb/resource/%/%edoweb_basic/view'] = array(
+  $items['resource/%edoweb_basic/view'] = array(
     'title' => 'View',
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'weight' => -10,
   );
 
   // 'Edit' tab for an individual entity page.
-  $items['edoweb/resource/%/%edoweb_basic/edit'] = array(
+  $items['resource/%edoweb_basic/edit'] = array(
     'title' => 'Edit',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('edoweb_basic_form', 3),
+    'page arguments' => array('edoweb_basic_form', 1),
     'access arguments' => array('edit any edoweb_basic entity'),
     'type' => MENU_LOCAL_TASK,
   );
 
   // 'Children' tab for entities that can have children.
-  $items['edoweb/resource/%/%edoweb_basic/children'] = array(
+  $items['resource/%edoweb_basic/children'] = array(
     'title' => 'Children',
     'page callback' => 'edoweb_basic_children',
-    'page arguments' => array(3),
+    'page arguments' => array(1),
     'access callback' => '_edoweb_child_access',
-    'access arguments' => array(3),
+    'access arguments' => array(1),
     'type' => MENU_LOCAL_TASK,
   );
 
   // 'Add Child' for entities that can have children.
-  $items['edoweb/resource/%/%edoweb_basic/children/add/%'] = array(
+  $items['resource/%edoweb_basic/children/add/%'] = array(
     'title callback' => 'edoweb_basic_bundle_name',
-    'title arguments' => array(6),
+    'title arguments' => array(4),
     'page callback' => 'edoweb_basic_add',
-    'page arguments' => array(6, 3),
+    'page arguments' => array(4, 1),
     'access callback' => '_edoweb_child_access',
-    'access arguments' => array(3),
+    'access arguments' => array(1),
     'type' => MENU_CALLBACK,
   );
 
   // Add entities.
-  $items['edoweb/resource/%/add'] = array(
+  $items['resource/add/%'] = array(
     'title callback' => 'edoweb_basic_bundle_name',
     'title arguments' => array(2),
     'page callback' => 'edoweb_basic_add',
@@ -244,7 +256,7 @@ function edoweb_menu() {
   );
 
   // Import entities.
-  $items['edoweb/resource/%/import'] = array(
+  $items['resource/import/%'] = array(
     'title' => 'Import an Edoweb Basic Entity',
     'page callback' => 'edoweb_basic_import',
     'page arguments' => array(2),
@@ -265,25 +277,26 @@ function edoweb_menu() {
  * Basic information for the page.
  */
 function edoweb_info_page() {
+  $page = array_key_exists('page', $_GET) ? $_GET['page'] : 0;
   $content['add monograph'] = array(
     '#type' => 'item',
     '#markup' => t('!add or !import a monograph', array(
-      '!add' => l(t('Add'), 'edoweb/resource/monograph/add'),
-      '!import' => l(t('import'), 'edoweb/resource/monograph/import'),
+      '!add' => l(t('Add'), 'resource/add/monograph'),
+      '!import' => l(t('import'), 'resource/import/monograph'),
     )),
   );
   $content['add journal'] = array(
     '#type' => 'item',
     '#markup' => t('!add or !import a journal', array(
-      '!add' => l(t('Add'), 'edoweb/resource/journal/add'),
-      '!import' => l(t('import'), 'edoweb/resource/journal/import'),
+      '!add' => l(t('Add'), 'resource/add/journal'),
+      '!import' => l(t('import'), 'resource/import/journal'),
     )),
   );
   $content['preface'] = array(
     '#type' => 'item',
     '#markup' => t('List of all Edoweb entities')
   );
-  $content['table'] = edoweb_basic_list_entities();
+  $content['table'] = edoweb_basic_list_entities($page);
 
   return $content;
 }
@@ -311,42 +324,31 @@ function edoweb_permission() {
 
 
 /**
- * Provides a list of existing entities and the ability to add more. Tabs
- * provide field and display management.
- */
-function edoweb_basic_admin_page() {
-  $content = array();
-  $content[] = array(
-    '#type' => 'item',
-    '#markup' => t('Administration page for Edoweb Basic Entities.')
-  );
-
-  $content[] = array(
-    '#type' => 'item',
-    '#markup' => l(t('Add an edoweb_basic entity'), 'edoweb/resource/basic/add'),
-  );
-
-  $content['table'] = edoweb_basic_list_entities();
-
-  return $content;
-}
-
-/**
  * Returns a render array with all edoweb_basic entities.
  *
  * TODO: implement a pager
  */
-function edoweb_basic_list_entities() {
+function edoweb_basic_list_entities($page) {
   $content = array();
   // Load all of our entities.
-  $entities = edoweb_basic_load_multiple();
+  $query = new EntityFieldQuery();
+  $query
+    ->entityCondition('entity_type', 'edoweb_basic')
+    ->range($page * 10, 10);
+  $result = $query->execute();
+  if (!array_key_exists('edoweb_basic', $result)) {
+    $entities = array();
+  } else {
+    $entity_ids = array_keys($result['edoweb_basic']);
+    $entities = edoweb_basic_load_multiple($entity_ids);
+  }
   if (!empty($entities)) {
     foreach ( $entities as $entity ) {
       // Create tabular rows for our entities.
       $rows[] = array(
         'data' => array(
-          'id' => l($entity->local_id, "edoweb/resource/{$entity->bundle_type}/{$entity->local_id}"),
-          'title' => $entity->field_edoweb_title['und'][0]['value'],
+          'id' => l($entity->remote_id, "resource/{$entity->remote_id}"),
+          'title' => edoweb_basic_title($entity),
           'bundle' => $entity->bundle_type,
         ),
       );
@@ -356,6 +358,18 @@ function edoweb_basic_list_entities() {
       '#theme' => 'table',
       '#rows' => $rows,
       '#header' => array(t('ID'), t('Title'), t('Bundle')),
+    );
+    $content['pager'] = array(
+      '#type' => 'item',
+      '#markup' => '',
+    );
+    if ($page > 0) {
+      $content['pager']['#markup']  .= l(
+        '<< ', 'resource', array('query' => array('page' => ($page - 1)))
+      );
+    }
+    $content['pager']['#markup']  .= l(
+      '>>', 'resource', array('query' => array('page' => ($page + 1)))
     );
   }
   else {
@@ -372,8 +386,13 @@ function edoweb_basic_list_entities() {
  * Callback for a page title when this entity is displayed.
  */
 function edoweb_basic_title($entity) {
-  $title_items = field_get_items('edoweb_basic', $entity, 'field_edoweb_title');
-  return t('@title', array('@title' => $title_items[0]['value']));
+  $title_items = field_get_items(
+    'edoweb_basic', $entity, 'field_edoweb_title'
+  );
+  $title = $title_items[0]['value']
+    ? $title_items[0]['value']
+    : "Untitled {$entity->bundle_type}";
+  return t($title);
 }
 
 /**
@@ -428,19 +447,21 @@ function edoweb_basic_view($entity, $view_mode = 'tweaky') {
     '#weight' => -1,
   );
 
-  $entity->content['turtle'] = array(
-    '#type' => 'item',
-    '#title' => t('Turtle view'),
-    '#markup' => sprintf('<pre>%s</pre>', htmlentities(_edoweb_storage_entity_serialize_turtle($entity))),
-    '#weight' => 100,
-  );
+  if (1 == variable_get('edoweb_api_debug')) {
+    $entity->content['turtle'] = array(
+      '#type' => 'item',
+      '#title' => t('Turtle view'),
+      '#markup' => sprintf('<pre>%s</pre>', htmlentities(_edoweb_storage_entity_serialize_turtle($entity))),
+      '#weight' => 100,
+    );
 
-  $entity->content['json'] = array(
-    '#type' => 'item',
-    '#title' => t('JSON-LD view'),
-    '#markup' => sprintf('<pre>%s</pre>', htmlentities(_edoweb_storage_entity_serialize_jsonld($entity))),
-    '#weight' => 100,
-  );
+    $entity->content['json'] = array(
+      '#type' => 'item',
+      '#title' => t('JSON-LD view'),
+      '#markup' => sprintf('<pre>%s</pre>', htmlentities(_edoweb_storage_entity_serialize_jsonld($entity))),
+      '#weight' => 100,
+    );
+  }
 
   // Now to invoke some hooks. We need the language code for
   // hook_entity_view(), so let's get that.
@@ -514,8 +535,8 @@ function edoweb_basic_children($entity) {
       // Create tabular rows for our entities.
       $rows[] = array(
         'data' => array(
-          'id' => l($entity->local_id, "edoweb/resource/{$entity->bundle_type}/{$entity->local_id}"),
-          'title' => $entity->field_edoweb_title['und'][0]['value'],
+          'id' => l($entity->remote_id, "resource/{$entity->remote_id}"),
+          'title' => edoweb_basic_title($entity),
           'bundle' => $entity->bundle_type,
         ),
       );
@@ -594,7 +615,62 @@ function edoweb_basic_import_submit(&$form, &$form_state) {
   }
   $form_state['redirect'] = false;
   $form = drupal_get_form('edoweb_basic_form', $entity);
-  $form['#action'] = url("edoweb/resource/{$entity->bundle_type}/add");
+  $form['#action'] = url("resource/add/{$entity->bundle_type}");
+}
+
+/**
+* Create and display the bulk import form.
+*/
+function edoweb_bulk_import_form($form, &$form_state) {
+
+  // Drop-down list for resource type.
+  $form['edoweb_bundle_type'] = array(
+    '#type' => 'select',
+    '#title' => t('Resource Type'),
+    '#description' => t('The type of the resources to import.'),
+    '#options' => array(
+      'monograph' => t('Monograph'),
+      'journal' => t('eJournal'),
+    ),
+    '#required' => TRUE,
+  );
+
+  // Radio buttons for import mode
+  $form['edoweb_bundle_type_import_mode'] = array(
+    '#title' => t('Import mode'),
+    '#type' => 'radios',
+    '#options' => array(
+      'append' => t('Append'),
+      'overwrite' => t('Overwrite'),
+      'clear' => t('Clear all'),
+    ),
+    '#default_value' => 'append',
+  );
+
+  // Checkbox for descriptive metadata dependency
+  $form['edoweb_bundle_type_metadata_required'] = array(
+    '#title' => t('Only import entities with descriptive metadata'),
+    '#type' => 'checkbox',
+  );
+
+
+  // Submit button
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Import'),
+  );
+  return $form;
+}
+
+/*
+ * Bulk import resources of the given bundle type.
+ */
+function edoweb_bulk_import_form_submit($form, &$form_state) {
+  $bundle_type = $form_state['values']['edoweb_bundle_type'];
+  $import_mode = $form_state['values']['edoweb_bundle_type_import_mode'];
+  $metadata_required = $form_state['values']['edoweb_bundle_type_metadata_required'];
+  $api = new EdowebAPIClient();
+  $api->import($bundle_type, $import_mode, $metadata_required);
 }
 
 /**
@@ -663,13 +739,11 @@ function edoweb_basic_form_submit($form, &$form_state) {
   $parents = field_get_items('edoweb_basic', $entity, 'field_edoweb_parent');
   if (FALSE !== $parents) {
     foreach($parents as $parent) {
-      $parent_entity = edoweb_basic_load($parent['target_id']);
-      $wrapper = entity_metadata_wrapper('edoweb_basic', $parent_entity);
-      $wrapper->field_edoweb_child[] = _edoweb_storage_entity_get_id($entity);
-      edoweb_basic_save($parent_entity);
+      // Reset cache to force reload of structural metadata from API
+      cache_clear_all("field:edoweb_basic:{$parent['target_id']}", 'cache_field');
     }
   }
-  $form_state['redirect'] = "edoweb/resource/{$entity->bundle_type}/{$entity->local_id}";
+  $form_state['redirect'] = "resource/{$entity->remote_id}";
 }
 
 /**
@@ -681,9 +755,9 @@ function edoweb_basic_edit_delete( $form , &$form_state ) {
   $entity = $form_state['values']['basic_entity'];
   edoweb_basic_delete($entity);
   drupal_set_message(t('The entity %id has been deleted',
-    array('%id' => $entity->local_id))
+    array('%id' => $entity->remote_id))
   );
-  $form_state['redirect'] = 'edoweb/resource';
+  $form_state['redirect'] = 'resource';
 }
 
 /**
@@ -750,17 +824,19 @@ function edoweb_rdf_mapping() {
         'field_edoweb_publisher' => array(
           'predicates' => array('isbd:P1017'),
         ),
-        'field_edoweb_file' => array(
-          'predicates' => array('ore:aggregates'),
-        ),
-        'field_edoweb_child' => array(
-          'predicates' => array('dc:hasPart'),
-          'type' => 'rel',
-        ),
-        'field_edoweb_parent' => array(
-          'predicates' => array('dc:isPartOf'),
-          'type' => 'rel',
-        ),
+        // Files and parent/child relations not mapped as
+        // they are not part of the descriptive metadata.
+        //'field_edoweb_file' => array(
+        //  'predicates' => array('ore:aggregates'),
+        //),
+        //'field_edoweb_child' => array(
+        //  'predicates' => array('dc:hasPart'),
+        //  'type' => 'rel',
+        //),
+        //'field_edoweb_parent' => array(
+        //  'predicates' => array('dc:isPartOf'),
+        //  'type' => 'rel',
+        //),
       ),
     ),
   );
@@ -827,23 +903,25 @@ function _edoweb_http_request($request_url, $http_options) {
   }
 
   // Display response in UI
-  $status_type = 'error';
-  switch ($http_response->code[0]) {
-    case '2':
-      $status_type = 'status';
-      break;
-    case '3':
-      $status_type = 'warning';
-      break;
+  if (1 == variable_get('edoweb_api_debug')) {
+    $status_type = 'error';
+    switch ($http_response->code[0]) {
+      case '2':
+        $status_type = 'status';
+        break;
+      case '3':
+        $status_type = 'warning';
+        break;
+    }
+    drupal_set_message(
+      sprintf(
+        'API call responded with HTTP %s.<pre>{%s}</pre>',
+        $http_response->code,
+        htmlentities(print_r($http_response, TRUE))
+      ),
+      $status_type
+    );
   }
-  drupal_set_message(
-    sprintf(
-      'API call responded with HTTP %s.<pre>{%s}</pre>',
-      $http_response->code,
-      htmlentities(print_r($http_response, TRUE))
-    ),
-    $status_type
-  );
 
   return $http_response;
 }
@@ -870,7 +948,7 @@ function _edoweb_label_callback_set($entity, $entity_type) {
 }
 
 function _edoweb_gnd_autocomplete($string) {
-  $autocomplete_url = "http://demo.lobid.org/author/$string?index=gnd-index";
+  $autocomplete_url = "http://api.lobid.org/person?name=" . urlencode($string);
   $http_options = array(
     'method' => 'GET',
     'headers' => array('Accept' => 'application/json'),
@@ -986,6 +1064,9 @@ class EdowebBasicController
     // time of creation.
     if (empty($entity->local_id)) {
       $entity->created = time();
+    }
+    // If our entity has no remote_id, create one.
+    if (empty($entity->remote_id)) {
       $entity->remote_id = 'edoweb:' . self::uuid_v4();
     }
     // Invoke hook_entity_presave().
@@ -1080,7 +1161,8 @@ class LinkedDataClient {
     $rdf_subject = new LibRDF_URINode($resource_uri);
     $rdf_parser = new LibRDF_Parser('rdfxml');
     _edoweb_storage_entity_deserialize_rdf($entity, $rdf_subject, $rdf_data, $rdf_parser);
-    $entity->remote_id = $resource_uri;
+    // TODO: Incorporate origin into database scheme
+    //$entity->origin = $resource_uri;
     return TRUE;
   }
 
