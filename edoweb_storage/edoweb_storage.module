@@ -272,7 +272,7 @@ function edoweb_storage_entity_info_alter(&$entity_info) {
 }
 
 function __devnulldb_log($message, $target='php://stderr') {
-  file_put_contents($target, $message);
+  // file_put_contents($target, $message);
 }
 
 /*************************
@@ -405,6 +405,8 @@ function _edoweb_storage_entity_deserialize_rdf($entity, $rdf_subject, $rdf_data
       foreach ($rdf_model->getTargets($rdf_subject, $rdf_predicate) as $value) {
         try {
           if ($value instanceOf LibRDF_LiteralNode) {
+            // Fix escaped unicode characters such as \u00E4
+            $value = json_decode('"'.$value.'"');
             if ($wrapper->{$field_name} instanceOf EntityValueWrapper) {
               $wrapper->{$field_name} = (string) $value;
             } else {

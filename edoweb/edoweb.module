@@ -474,8 +474,37 @@ function edoweb_basic_view($entity, $view_mode = 'tweaky') {
   drupal_alter(array('edoweb_basic_view', 'entity_view'),
     $entity->content, $entity_type);
 
+  _edoweb_build_breadcrumb($entity);
+
   // And finally return the content.
   return $entity->content;
+}
+
+function _edoweb_build_breadcrumb($entity, $trail = NULL) {
+  if (!$trail) {
+    $trail = drupal_get_breadcrumb();
+  }
+  // Add link to current item if not present
+  if (count($trail) == 2) {
+    $current_entity = l(drupal_get_title(), current_path());
+  } else if (count($trail) == 1) {
+    $trail[] = l(t('Edoweb'), 'resource');
+    $current_entity = l(drupal_get_title(), current_path());
+  } else {
+    $current_entity = array_pop($trail);
+  }
+  // Recursively add parents to breadcrumb trail
+  $parents = field_get_items('edoweb_basic', $entity, 'field_edoweb_parent');
+  if (FALSE !== $parents) {
+    $local_id = $parents[0]['target_id'];
+    $parent = edoweb_basic_load(_edoweb_storage_entity_get_remote_id($local_id));
+    $titles = field_get_items('edoweb_basic', $parent, 'field_edoweb_title');
+    $title = $titles[0]['value'];
+    $parent_url = edoweb_basic_uri($parent);
+    $trail[] = l($title, $parent_url['path']);
+  }
+  $trail[] = $current_entity;
+  drupal_set_breadcrumb($trail);
 }
 
 /**
@@ -511,6 +540,7 @@ function edoweb_basic_add($bundle_type, $parent = NULL) {
   if (NULL !== $parent) {
     $wrapper->field_edoweb_parent[] = _edoweb_storage_entity_get_id($parent);
   }
+  _edoweb_build_breadcrumb($entity);
   return drupal_get_form('edoweb_basic_form', $entity);
 }
 

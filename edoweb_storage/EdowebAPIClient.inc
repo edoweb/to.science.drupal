@@ -88,6 +88,31 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
           }
         }
       }
+      // Fetch and add parents
+      if (property_exists($repository_data, 'isPartOf')) {
+        if (!is_array($repository_data->isPartOf)) {
+          $parents = array($repository_data->isPartOf);
+        } else {
+          $parents = $repository_data->isPartOf;
+        }
+        foreach ($parents as $remote_url) {
+          $remote_id = substr($remote_url, strrpos($remote_url, '/') + 1);
+          $local_id = db_query(
+            'SELECT local_id FROM {edoweb_basic} WHERE remote_id = :remote_id',
+            array(':remote_id' => $remote_id)
+          )->fetchField();
+          try {
+            if ($wrapper->field_edoweb_parent instanceOf EntityValueWrapper) {
+              $wrapper->field_edoweb_parent = $local_id;
+            } else {
+              $wrapper->field_edoweb_parent[] = $local_id;
+            }
+          } catch (EntityMetadataWrapperException $e) {
+            // TODO: log errors
+            //drupal_set_message($e->getMessage(), 'error');
+          }
+        }
+      }
       // Fetch and add files.
       if (property_exists($repository_data, 'pdfUrl')) {
         $file_url = $repository_data->pdfUrl;
@@ -227,8 +252,7 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
       $remote_id
     );
     $http_response = $this->_http_get($http_url);
-    // TODO: Check for HTTP 404 instead when API supports this
-    if (500 == $http_response->code && 1 == $metadata_required) {
+    if (404 == $http_response->code && 1 == $metadata_required) {
       return;
     }
 
