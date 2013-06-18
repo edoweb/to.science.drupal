@@ -195,7 +195,7 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
         );
         if ($this->_http_multipart_put($http_url, $file_path, $file->filemime)) {
           $file->uri = "http://{$this->__edoweb_api_host}/resources/{$entity->remote_id}/data";
-          _edoweb_file_save($file);
+          _edoweb_file_save($file, $entity);
           unlink($file_path);
         }
       }
@@ -241,7 +241,7 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
   /*
    * Import an entity based on its remote id.
    */
-  public function importEntity($remote_id, $import_mode = 'append', $metadata_required = FALSE) {
+  public function importEntity($remote_id, $import_mode = 'overwrite', $metadata_required = FALSE) {
 
     // Check for metadata
     $http_url = sprintf(
@@ -302,6 +302,7 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
     }
 
     // Fetch and add files.
+    _edoweb_entity_files_remove($entity);
     if (property_exists($repository_data, 'pdfUrl')) {
       $file_url = $repository_data->pdfUrl;
       $parsed_url = parse_url($file_url);
@@ -324,14 +325,14 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
         $file->filename = t('Unnamed file');
       }
       $file->uri = $file_url;
-      _edoweb_file_save($file);
+      _edoweb_file_save($file, $entity);
     }
   }
 
   /*
    * Import entities of a given bundle type.
    */
-  public function import($bundle_type, $import_mode = 'append', $metadata_required = FALSE) {
+  public function import($bundle_type, $import_mode = 'overwrite', $metadata_required = FALSE) {
     // Build resource list url
     $http_url = sprintf(
       'http://%s:%s@%s/%s/',
@@ -346,6 +347,15 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
 
     // Wipe existing records if requested
     if ('clear' == $import_mode) {
+      // Delete corresponding file records
+      $entities = db_select('edoweb_basic', 'e')
+        ->fields('e')
+        ->condition('bundle_type', $bundle_type, '=')
+        ->execute();
+      foreach ($entities as $entity) {
+        _edoweb_entity_files_remove($entity);
+      }
+      // Delete entity records
       $num_deleted = db_delete('edoweb_basic')
         ->condition('bundle_type', $bundle_type)
         ->execute();

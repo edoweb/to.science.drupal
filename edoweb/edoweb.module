@@ -670,11 +670,10 @@ function edoweb_bulk_import_form($form, &$form_state) {
     '#title' => t('Import mode'),
     '#type' => 'radios',
     '#options' => array(
-      'append' => t('Append'),
       'overwrite' => t('Overwrite'),
       'clear' => t('Clear all'),
     ),
-    '#default_value' => 'append',
+    '#default_value' => 'overwrite',
   );
 
   // Checkbox for descriptive metadata dependency

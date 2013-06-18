@@ -512,7 +512,7 @@ function _edoweb_expand_curie($curie) {
   return $rdf_namespaces[$curie_prefix] . $curie_local;
 }
 
-function _edoweb_file_save(stdClass $file) {
+function _edoweb_file_save(stdClass $file, $entity) {
   $file->timestamp = REQUEST_TIME;
 
   module_invoke_all('file_presave', $file);
@@ -520,6 +520,7 @@ function _edoweb_file_save(stdClass $file) {
 
   if (empty($file->fid)) {
     drupal_write_record('file_managed', $file);
+    file_usage_add($file, 'file', 'edoweb_basic', $entity->local_id);
     // Inform modules about the newly added file.
     module_invoke_all('file_insert', $file);
     module_invoke_all('entity_insert', $file, 'file');
@@ -534,3 +535,17 @@ function _edoweb_file_save(stdClass $file) {
   return $file;
 }
 
+function _edoweb_entity_files_remove($entity) {
+  $file_usages = db_select('file_usage', 'fu')
+    ->fields('fu')
+    ->condition('id', $entity->local_id, '=')
+    ->condition('type', 'edoweb_basic', '=')
+    ->execute();
+  foreach ($file_usages as $file_usage) {
+    $file = file_load($file_usage->fid);
+    $file_deleted = db_delete('file_managed')
+      ->condition('fid', $file->fid, '=')
+      ->execute();
+    file_usage_delete($file, 'file', 'edoweb_basic', $entity->local_id);
+  }
+}

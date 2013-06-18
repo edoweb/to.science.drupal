@@ -6,6 +6,15 @@ graph-based api for library data).
 
 # Installation
 
+regal-drupal will create the user edoweb:edoweb2013. Make sure to
+change the password as soon as installation is complete!
+
+regal-drupal depends on the librdf and curl modules for php5.
+Installation on Ubuntu, your distribution may vary:
+
+    $ sudo apt-get install php5-librdf
+    $ sudo apt-get install php5-curl
+
 Clone the repository to Drupal's module directory:
 
     $ cd sites/all/modules
