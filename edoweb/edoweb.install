@@ -299,12 +299,16 @@ function _edoweb_installed_instances() {
     ),
     array(
       'field_name'  => 'field_edoweb_child',
-      'label'       => $t('Volume'),
+      'label'       => $t('Child'),
       'bundle'      => 'journal',
       'settings'    => array(
         'target_type' => 'edoweb_basic',
         'handler_settings' => array(
-          'target_bundles' => array('volume' => 'volume'),
+          'target_bundles' => array(
+            'volume' => 'volume',
+            'issue' => 'issue',
+            'article' => 'article',
+          ),
         ),
       ),
     ),
@@ -313,12 +317,14 @@ function _edoweb_installed_instances() {
      */
     array(
       'field_name'  => 'field_edoweb_parent',
-      'label'       => $t('Journal'),
+      'label'       => $t('Parent'),
       'bundle'      => 'volume',
       'settings'    => array(
         'target_type' => 'edoweb_basic',
         'handler_settings' => array(
-          'target_bundles' => array('journal' => 'journal'),
+          'target_bundles' => array(
+            'journal' => 'journal',
+          ),
         ),
       ),
     ),
@@ -380,6 +386,100 @@ function _edoweb_installed_instances() {
       'settings'    => array(
         'file_extensions' => 'pdf',
       ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_child',
+      'label'       => $t('Children'),
+      'bundle'      => 'volume',
+      'settings'    => array(
+        'target_type' => 'edoweb_basic',
+        'handler_settings' => array(
+          'target_bundles' => array(
+            'issue' => 'issue',
+            'article' => 'article',
+          ),
+        ),
+      ),
+    ),
+    /**
+     * Field instances in the issue bundle
+     */
+    array(
+      'field_name'  => 'field_edoweb_parent',
+      'label'       => $t('Parent'),
+      'bundle'      => 'issue',
+      'settings'    => array(
+        'target_type' => 'edoweb_basic',
+        'handler_settings' => array(
+          'target_bundles' => array(
+            'journal' => 'journal',
+            'volume' => 'volume',
+          ),
+        ),
+      ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_title',
+      'label'       => $t('Titel'),
+      'bundle'      => 'issue',
+    ),
+    array(
+      'field_name'  => 'field_edoweb_issued',
+      'label'       => $t('Erscheinungsjahr'),
+      'bundle'      => 'issue',
+    ),
+    array(
+      'field_name'  => 'field_edoweb_language',
+      'label'       => $t('Sprache'),
+      'bundle'      => 'issue',
+      'default_value' => array(array('value' => 'http://id.loc.gov/vocabulary/iso639-2/ger')),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_child',
+      'label'       => $t('Child'),
+      'bundle'      => 'issue',
+      'settings'    => array(
+        'target_type' => 'edoweb_basic',
+        'handler_settings' => array(
+          'target_bundles' => array(
+            'article' => 'article',
+          ),
+        ),
+      ),
+    ),
+    /**
+     * Field instances in the article bundle
+     */
+    array(
+      'field_name'  => 'field_edoweb_parent',
+      'label'       => $t('Parent'),
+      'bundle'      => 'article',
+      'settings'    => array(
+        'target_type' => 'edoweb_basic',
+        'handler_settings' => array(
+          'target_bundles' => array(
+            'journal' => 'journal',
+            'volume' => 'volume',
+            'issue' => 'issue',
+          ),
+        ),
+      ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_title',
+      'label'       => $t('Titel'),
+      'bundle'      => 'article',
+    ),
+    array(
+      'field_name'  => 'field_edoweb_issued',
+      'label'       => $t('Erscheinungsjahr'),
+      'bundle'      => 'article',
+    ),
+    array(
+      'field_name'  => 'field_edoweb_language',
+      'label'       => $t('Sprache'),
+      'bundle'      => 'article',
+      'default_value' => array(array('value' => 'http://id.loc.gov/vocabulary/iso639-2/ger')),
     ),
   );
 }
@@ -466,6 +566,8 @@ function edoweb_uninstall() {
   field_attach_delete_bundle('edoweb_basic', 'monograph');
   field_attach_delete_bundle('edoweb_basic', 'journal');
   field_attach_delete_bundle('edoweb_basic', 'volume');
+  field_attach_delete_bundle('edoweb_basic', 'issue');
+  field_attach_delete_bundle('edoweb_basic', 'article');
 
   // Delete field instances for now.
   // Check status of http://drupal.org/node/1015846

@@ -518,18 +518,21 @@ function _edoweb_file_save(stdClass $file, $entity) {
   module_invoke_all('file_presave', $file);
   module_invoke_all('entity_presave', $file, 'file');
 
-  if (empty($file->fid)) {
-    drupal_write_record('file_managed', $file);
-    file_usage_add($file, 'file', 'edoweb_basic', $entity->local_id);
-    // Inform modules about the newly added file.
-    module_invoke_all('file_insert', $file);
-    module_invoke_all('entity_insert', $file, 'file');
-  }
-  else {
-    drupal_write_record('file_managed', $file, 'fid');
-    // Inform modules that the file has been updated.
-    module_invoke_all('file_update', $file);
-    module_invoke_all('entity_update', $file, 'file');
+  try {
+    if (empty($file->fid)) {
+      drupal_write_record('file_managed', $file);
+      file_usage_add($file, 'file', 'edoweb_basic', $entity->local_id);
+      // Inform modules about the newly added file.
+      module_invoke_all('file_insert', $file);
+      module_invoke_all('entity_insert', $file, 'file');
+    } else {
+      drupal_write_record('file_managed', $file, 'fid');
+      // Inform modules that the file has been updated.
+      module_invoke_all('file_update', $file);
+      module_invoke_all('entity_update', $file, 'file');
+    }
+  } catch (PDOException $e) {
+    drupal_set_message("Could not write file record for {$file->filename}", 'error');
   }
 
   return $file;

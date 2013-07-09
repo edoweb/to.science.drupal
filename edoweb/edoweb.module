@@ -99,6 +99,24 @@ function edoweb_entity_info() {
           'access arguments' => array('administer edoweb_basic entities'),
         ),
       ),
+      'issue' => array(
+        'label' => t('Issue'),
+        // 'admin' key is used by the Field UI to provide field and
+        // display UI pages.
+        'admin' => array(
+          'path' => 'admin/structure/edoweb_basic/issue/manage',
+          'access arguments' => array('administer edoweb_basic entities'),
+        ),
+      ),
+      'article' => array(
+        'label' => t('Article'),
+        // 'admin' key is used by the Field UI to provide field and
+        // display UI pages.
+        'admin' => array(
+          'path' => 'admin/structure/edoweb_basic/article/manage',
+          'access arguments' => array('administer edoweb_basic entities'),
+        ),
+      ),
     ),
     // View modes allow entities to be displayed differently based on context.
     'view modes' => array(
@@ -556,18 +574,18 @@ function edoweb_basic_children($entity) {
     foreach ($children as $child) {
       $child_ids[] = $child['target_id'];
     }
-    $entities = edoweb_basic_load_multiple($child_ids);
+    $child_entities = edoweb_basic_load_multiple($child_ids);
   }
   $content = array();
   // Load all of our child entities.
-  if (!empty($entities)) {
-    foreach ( $entities as $entity ) {
+  if (!empty($child_entities)) {
+    foreach ( $child_entities as $child_entity ) {
       // Create tabular rows for our entities.
       $rows[] = array(
         'data' => array(
-          'id' => l($entity->remote_id, "resource/{$entity->remote_id}"),
-          'title' => edoweb_basic_title($entity),
-          'bundle' => $entity->bundle_type,
+          'id' => l($child_entity->remote_id, "resource/{$child_entity->remote_id}"),
+          'title' => edoweb_basic_title($child_entity),
+          'bundle' => $child_entity->bundle_type,
         ),
       );
     }
@@ -585,10 +603,19 @@ function edoweb_basic_children($entity) {
       '#markup' => t('No child entities currently exist.'),
     );
   }
-  $content[] = array(
-    '#type' => 'item',
-    '#markup' => l(t('Add child'), current_path() . '/add/volume'),
+
+  // Fetch and link to add possible child bundles
+  $field_info_instance = field_info_instance(
+    'edoweb_basic', 'field_edoweb_child', $entity->bundle_type
   );
+  $child_bundles = $field_info_instance['settings']['handler_settings']['target_bundles'];
+  foreach ($child_bundles as $child_bundle) {
+    $content[] = array(
+      '#type' => 'item',
+      '#markup' => l(t("Add $child_bundle"), current_path() .  "/add/$child_bundle"),
+    );
+  }
+
   return $content;
 }
 
@@ -665,6 +692,13 @@ function edoweb_bulk_import_form($form, &$form_state) {
     '#required' => TRUE,
   );
 
+  // Text field for id list
+  $form['edoweb_bundle_type_id_constraint'] = array(
+    '#type' => 'textfield',
+    '#title' => t('IDs'),
+    '#description' => t('Limit the import to the following comma-separated list of IDs'),
+  );
+
   // Radio buttons for import mode
   $form['edoweb_bundle_type_import_mode'] = array(
     '#title' => t('Import mode'),
@@ -696,10 +730,17 @@ function edoweb_bulk_import_form($form, &$form_state) {
  */
 function edoweb_bulk_import_form_submit($form, &$form_state) {
   $bundle_type = $form_state['values']['edoweb_bundle_type'];
+  $id_constraint = $form_state['values']['edoweb_bundle_type_id_constraint'];
   $import_mode = $form_state['values']['edoweb_bundle_type_import_mode'];
   $metadata_required = $form_state['values']['edoweb_bundle_type_metadata_required'];
   $api = new EdowebAPIClient();
-  $api->import($bundle_type, $import_mode, $metadata_required);
+  if ($id_constraint) {
+    foreach (explode(',', $id_constraint) as $id) {
+      $api->importEntity($id, $import_mode, $metadata_required);
+    }
+  } else {
+    $api->import($bundle_type, $import_mode, $metadata_required);
+  }
 }
 
 /**
@@ -977,17 +1018,18 @@ function _edoweb_label_callback_set($entity, $entity_type) {
 }
 
 function _edoweb_gnd_autocomplete($string) {
-  $autocomplete_url = "http://api.lobid.org/person?name=" . urlencode($string);
+  $autocomplete_url = "http://api.lobid.org/person?name=";
+  $autocomplete_url .= urlencode($string);
+  $autocomplete_url .= "&format=ids";
   $http_options = array(
     'method' => 'GET',
     'headers' => array('Accept' => 'application/json'),
   );
   $http_response = drupal_http_request($autocomplete_url, $http_options);
   $json_data = json_decode($http_response->data);
-  $label_property = "http://d-nb.info/standards/elementset/gnd#preferredNameForThePerson";
   $matches = array();
   foreach($json_data as $match) {
-    $matches[$match->{'@id'}] = $match->{$label_property};
+    $matches[$match->{'value'}] = $match->{'label'};
   }
   drupal_json_output($matches);
 }
@@ -1105,7 +1147,13 @@ class EdowebBasicController
     // local_id as the key.
     $primary_keys = $entity->local_id ? 'local_id' : array();
     // Write out the entity record.
-    drupal_write_record('edoweb_basic', $entity, $primary_keys);
+    try {
+      drupal_write_record('edoweb_basic', $entity, $primary_keys);
+    } catch (PDOException $e) {
+      drupal_set_message(
+        "Failed to write record for {$entity->remote_id}.", 'error'
+      );
+    }
     // We're going to invoke either hook_entity_update() or
     // hook_entity_insert(), depending on whether or not this is a
     // new entity. We'll just store the name of hook_entity_insert()

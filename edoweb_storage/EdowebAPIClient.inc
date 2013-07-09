@@ -285,8 +285,13 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
 
     // Directly write out the entity record bypassing the controller to
     // prevent needlessly writing objects back to the API
-    drupal_write_record('edoweb_basic', $entity, $primary_keys);
-    drupal_set_message("Imported $remote_id.");
+    try {
+      drupal_write_record('edoweb_basic', $entity, $primary_keys);
+      drupal_set_message("Imported $remote_id.");
+    } catch (PDOException $e) {
+      drupal_set_message("Failed to import $remote_id.");
+      return;
+    }
 
     // Fetch and add child relations.
     if (property_exists($repository_data, 'hasPart')) {
