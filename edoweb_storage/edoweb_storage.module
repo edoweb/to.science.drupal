@@ -29,12 +29,12 @@
 */
 function edoweb_storage_menu() {
   $items = array();
-  $items['admin/config/edoweb/storage'] = array(
+  $items['edoweb/config/storage'] = array(
     'title' => 'Storage',
     'description' => 'Configuration for the Edoweb Storage module.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('edoweb_storage_configuration_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer edoweb configuration'),
     'type' => MENU_NORMAL_ITEM,
   );
 

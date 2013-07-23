@@ -77,10 +77,10 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
             array(':remote_id' => $remote_id)
           )->fetchField();
           try {
-            if ($wrapper->field_edoweb_child instanceOf EntityValueWrapper) {
-              $wrapper->field_edoweb_child = $local_id;
+            if ($wrapper->field_edoweb_struct_child instanceOf EntityValueWrapper) {
+              $wrapper->field_edoweb_struct_child = $local_id;
             } else {
-              $wrapper->field_edoweb_child[] = $local_id;
+              $wrapper->field_edoweb_struct_child[] = $local_id;
             }
           } catch (EntityMetadataWrapperException $e) {
             // TODO: log errors
@@ -102,10 +102,10 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
             array(':remote_id' => $remote_id)
           )->fetchField();
           try {
-            if ($wrapper->field_edoweb_parent instanceOf EntityValueWrapper) {
-              $wrapper->field_edoweb_parent = $local_id;
+            if ($wrapper->field_edoweb_struct_parent instanceOf EntityValueWrapper) {
+              $wrapper->field_edoweb_struct_parent = $local_id;
             } else {
-              $wrapper->field_edoweb_parent[] = $local_id;
+              $wrapper->field_edoweb_struct_parent[] = $local_id;
             }
           } catch (EntityMetadataWrapperException $e) {
             // TODO: log errors
@@ -172,7 +172,7 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
     $data = array(
       'type' => $entity->bundle_type,
     );
-    $parents = field_get_items('edoweb_basic', $entity, 'field_edoweb_parent');
+    $parents = field_get_items('edoweb_basic', $entity, 'field_edoweb_struct_parent');
     if (FALSE !== $parents) {
       $local_id = $parents[0]['target_id'];
       $data['parentPid'] = _edoweb_storage_entity_get_remote_id($local_id);
@@ -231,7 +231,7 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
     );
 
     //TODO: Delete children
-    //$children = field_get_items('edoweb_basic', $entity, 'field_edoweb_child');
+    //$children = field_get_items('edoweb_basic', $entity, 'field_edoweb_struct_child');
     //if (FALSE !== $children) {
     //  $local_id = $children[0]['target_id'];
     //}
