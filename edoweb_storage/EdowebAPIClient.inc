@@ -230,7 +230,7 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
       $entity->remote_id
     );
 
-    //TODO: Delete children
+    //TODO: Delete children, currently handeled by Edoweb API
     //$children = field_get_items('edoweb_basic', $entity, 'field_edoweb_struct_child');
     //if (FALSE !== $children) {
     //  $local_id = $children[0]['target_id'];

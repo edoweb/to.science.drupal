@@ -1286,6 +1286,14 @@ class EdowebBasicController
       $transaction = db_transaction();
       try {
         foreach ($entities as $entity) {
+          _edoweb_entity_files_remove($entity);
+          $children = field_get_items('edoweb_basic', $entity, 'field_edoweb_struct_child');
+          if (FALSE !== $children) {
+            foreach($children as $child_id) {
+              $child = edoweb_basic_load(_edoweb_storage_entity_get_remote_id($child_id));
+              $this->delete($child);
+            }
+          }
           // Invoke hook_entity_delete().
           module_invoke_all('entity_delete', $entity, 'edoweb_basic');
           field_attach_delete('edoweb_basic', $entity);
