@@ -175,8 +175,11 @@ function edoweb_basic_load_multiple($local_ids = FALSE, $conditions = array(), $
  * Implements the uri callback.
  */
 function edoweb_basic_uri($basic) {
+  $id = property_exists($basic, 'remote_id')
+    ? $basic->remote_id
+    : null;
   return array(
-    'path' => "resource/{$basic->remote_id}",
+    'path' => "resource/$id",
   );
 }
 
@@ -504,30 +507,25 @@ function edoweb_basic_view($entity, $view_mode = 'tweaky') {
   return $entity->content;
 }
 
-function _edoweb_build_breadcrumb($entity, $trail = NULL) {
-  if (!$trail) {
-    $trail = drupal_get_breadcrumb();
-  }
-  // Add link to current item if not present
-  if (count($trail) == 2) {
-    $current_entity = l(drupal_get_title(), current_path());
-  } else if (count($trail) == 1) {
-    $trail[] = l(t('Edoweb'), 'resource');
-    $current_entity = l(drupal_get_title(), current_path());
-  } else {
-    $current_entity = array_pop($trail);
-  }
-  // Recursively add parents to breadcrumb trail
+function _edoweb_build_parent_trail($entity, $trail = array()) {
+  // Recursively add parents to trail
   $parents = field_get_items('edoweb_basic', $entity, 'field_edoweb_struct_parent');
   if (FALSE !== $parents) {
     $local_id = $parents[0]['target_id'];
     $parent = edoweb_basic_load(_edoweb_storage_entity_get_remote_id($local_id));
-    $titles = field_get_items('edoweb_basic', $parent, 'field_edoweb_title');
-    $title = $titles[0]['value'];
-    $parent_url = edoweb_basic_uri($parent);
-    $trail[] = l($title, $parent_url['path']);
+    $trail = array_merge(
+      _edoweb_build_parent_trail($parent, $trail),
+      $trail
+    );
   }
-  $trail[] = $current_entity;
+  $title = edoweb_basic_title($entity);
+  $entity_url = edoweb_basic_uri($entity);
+  $trail[] = l($title, $entity_url['path']);
+  return $trail;
+}
+
+function _edoweb_build_breadcrumb($entity) {
+  $trail = _edoweb_build_parent_trail($entity);
   drupal_set_breadcrumb($trail);
 }
 
@@ -623,6 +621,7 @@ function edoweb_basic_children($entity) {
     );
   }
 
+  _edoweb_build_breadcrumb($entity);
   return $content;
 }
 
@@ -798,6 +797,7 @@ function edoweb_basic_form($form, &$form_state, $entity) {
     '#weight' => 200,
   );
 
+  _edoweb_build_breadcrumb($entity);
   return $form;
 }
 
