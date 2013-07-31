@@ -193,7 +193,7 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
           $this->__edoweb_api_host,
           $entity->remote_id
         );
-        if ($this->_http_multipart_put($http_url, $file_path, $file->filemime)) {
+        if (file_exists($file_path) && $this->_http_multipart_put($http_url, $file_path, $file->filemime)) {
           $file->uri = "http://{$this->__edoweb_api_host}/resources/{$entity->remote_id}/data";
           _edoweb_file_save($file, $entity);
           unlink($file_path);
@@ -387,10 +387,10 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
     $response = curl_exec($ch);
     if (curl_errno($ch) && 1 == variable_get('edoweb_api_debug')) {
       drupal_set_message(curl_error($ch));
+      return FALSE;
     } else {
       return TRUE;
     }
-    return FALSE;
   }
 
   protected function _http_put($request_url, $request_body = '', $content_type='text/plain') {

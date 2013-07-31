@@ -125,20 +125,20 @@ function edoweb_field_field_widget_form(&$form, &$form_state, $field, $instance,
     array('weight' => '100')
   );
 
-  $value = isset($items[$delta]['value']) ? $items[$delta]['value'] : '';
-  // Check if value was set in form input, e.g. when this function
-  // is called by ajax via the "Add another item" button.
-  $value = isset($form_state['input']['field_edoweb_creator']['und'][$delta]['value']) ?
-    $form_state['input']['field_edoweb_creator']['und'][$delta]['value'] : $value;
-
-  $widget = $element;
-  $widget['#delta'] = $delta;
-
-  $endpoint = $field['settings']['endpoint'];
-  $parameter = $field['settings']['parameter'];
-
   switch ($instance['widget']['type']) {
     case 'edoweb_autocomplete':
+      $widget = $element;
+      $widget['#delta'] = $delta;
+
+      $endpoint = $field['settings']['endpoint'];
+      $parameter = $field['settings']['parameter'];
+
+      $value = isset($items[$delta]['value']) ? $items[$delta]['value'] : '';
+      // Check if value was set in form input, e.g. when this function
+      // is called by ajax via the "Add another item" button.
+      $value = isset($form_state['input'][$field['field_name']]['und'][$delta]['value']) ?
+        $form_state['input'][$field['field_name']]['und'][$delta]['value'] : $value;
+
       if ($value != '') {
         $widget += array(
           '#type' => 'hidden',

@@ -135,6 +135,16 @@ function _edoweb_installed_fields() {
       'type'        => 'text',
     ),
     array(
+      'field_name' => 'field_edoweb_identifier_ht',
+      'cardinality' => 1,
+      'type'        => 'text',
+    ),
+    array(
+      'field_name' => 'field_edoweb_identifier_zdb',
+      'cardinality' => 1,
+      'type'        => 'text',
+    ),
+    array(
       'field_name' => 'field_edoweb_parent',
       'cardinality' => 1,
       'type'        => 'edoweb_ld_reference',
@@ -333,11 +343,17 @@ function _edoweb_installed_instances() {
   $t = get_t();
   return array(
     array(
-      'field_name'  => 'field_edoweb_identifier',
-      'label' => 'Identifikator',
-      'description' => 'Der Hauptidentifikator für diesen Datensatz; z.B. eine Aleph-ID',
+      'field_name'  => 'field_edoweb_identifier_ht',
+      'label' => 'HT-Nummer',
       'bundles'      => array(
         'monograph',
+        'journal',
+      ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_identifier_zdb',
+      'label' => 'ZDB-ID',
+      'bundles'      => array(
         'journal',
       ),
     ),

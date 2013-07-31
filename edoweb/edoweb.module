@@ -889,6 +889,12 @@ function edoweb_rdf_mapping() {
         'field_edoweb_identifier' => array(
           'predicates' => array('dc:identifier'),
         ),
+        'field_edoweb_identifier_ht' => array(
+          'predicates' => array('lv:hbzID'),
+        ),
+        'field_edoweb_identifier_zdb' => array(
+          'predicates' => array('lv:zdbID'),
+        ),
         'field_edoweb_parent' => array(
           'predicates' => array('dc:isPartOf'),
           'type' => 'rel',
@@ -1017,6 +1023,7 @@ function edoweb_rdf_namespaces() {
     'ore'  => 'http://www.openarchives.org/ore/terms/',
     'foaf'  => 'http://xmlns.com/foaf/0.1/',
     'umbel'  => 'http://umbel.org/umbel#',
+    'lv'  => 'http://purl.org/lobid/lv#',
   );
 }
 
