@@ -26,18 +26,26 @@ function edoweb_field_field_info() {
     'edoweb_ld_reference' => array(
       'label' => t('A linked data field'),
       'description' => t('This field holds the URI of a linked data resource'),
-      'default_widget' => 'edoweb_autocomplete',
+      'default_widget' => 'edoweb_autocomplete_widget',
       'default_formatter' => 'edoweb_ld_format',
       'property_type' => 'uri',
     ),
     'edoweb_date' => array(
       'label' => t('A field for dates'),
-      'description' => t('This field holds can hold dates of the format DD.MM.YYYY, MM/YYYY or YYYY'),
+      'description' => t('This field holds dates of the format DD.MM.YYYY, MM/YYYY or YYYY'),
       'settings' => array('max_length' => 10),
       'instance_settings' => array('text_processing' => 0),
       'default_widget' => 'text_textfield',
       'default_formatter' => 'text_default',
       'property_type' => 'text',
+    ),
+    'edoweb_datastream' => array(
+      'label' => t('A field for datastreams'),
+      'description' => t('This field holds datastream URIs'),
+      'instance_settings' => array('text_processing' => 0),
+      'default_widget' => 'edoweb_upload_widget',
+      'default_formatter' => 'edoweb_datastream_format',
+      'property_type' => 'uri',
     ),
   );
 }
@@ -77,9 +85,13 @@ function edoweb_field_field_is_empty($item, $field) {
  */
 function edoweb_field_field_widget_info() {
   return array(
-    'edoweb_autocomplete' => array(
+    'edoweb_autocomplete_widget' => array(
       'label' => t('Auto-complete'),
       'field types' => array('edoweb_ld_reference'),
+    ),
+    'edoweb_upload_widget' => array(
+      'label' => t('File Upload'),
+      'field types' => array('edoweb_datastream'),
     ),
   );
 }
@@ -94,6 +106,11 @@ function edoweb_field_field_formatter_info() {
       'field types' => array('edoweb_ld_reference'),
       'multiple values' => FIELD_BEHAVIOR_DEFAULT,
     ),
+    'edoweb_datastream_format' => array(
+      'label' => t('Datastream URI'),
+      'field types' => array('edoweb_datastream'),
+      'multiple values' => FIELD_BEHAVIOR_DEFAULT,
+    ),
   );
 }
 
@@ -102,10 +119,21 @@ function edoweb_field_field_formatter_info() {
  */
 function edoweb_field_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
   $elements = array();
-  foreach ($items as $delta => $item) {
-    $elements[$delta] = array(
-      '#markup' => l(_edoweb_field_field_get_label($item['value']), $item['value']),
-    );
+  switch ($display['type']) {
+    case 'edoweb_ld_format':
+      foreach ($items as $delta => $item) {
+        $elements[$delta] = array(
+          '#markup' => l(_edoweb_field_field_get_label($item['value']), $item['value']),
+        );
+      }
+      break;
+    case 'edoweb_datastream_format':
+      foreach ($items as $delta => $item) {
+        $elements[$delta] = array(
+          '#markup' => l($item['value'], $item['value']),
+        );
+      }
+      break;
   }
   return $elements;
 }
@@ -126,7 +154,7 @@ function edoweb_field_field_widget_form(&$form, &$form_state, $field, $instance,
   );
 
   switch ($instance['widget']['type']) {
-    case 'edoweb_autocomplete':
+    case 'edoweb_autocomplete_widget':
       $widget = $element;
       $widget['#delta'] = $delta;
 
@@ -157,6 +185,18 @@ function edoweb_field_field_widget_form(&$form, &$form_state, $field, $instance,
         );
       }
       $element['value'] = $widget;
+      break;
+    case 'edoweb_upload_widget':
+      $widget = $element;
+      $widget['#delta'] = $delta;
+      $value = isset($items[$delta]['value']) ? $items[$delta]['value'] : '';
+      if ($value == '') {
+        $widget += array(
+          '#type' => 'file',
+          '#title' => t('Choose a file'),
+        );
+      }
+      $element['value'] = $widget;
   }
 
   return $element;
@@ -168,7 +208,14 @@ function _edoweb_field_field_get_label($resource_uri) {
     'headers' => array('Accept' => 'application/rdf+xml'),
   );
   $http_response = _edoweb_http_request($resource_uri, $http_options);
-  $rdf_data = $http_response->data;
+  if ((200 == $http_response->code) && isset($http_response->data)) {
+    $rdf_data = $http_response->data;
+  } else {
+    watchdog('edoweb_field', 'Unable to fetch label for @uri',
+      array('@uri' => $resource_uri)
+    );
+    $rdf_data = '';
+  }
   $rdf_subject = new LibRDF_URINode($resource_uri);
   $rdf_parser = new LibRDF_Parser('rdfxml');
   $rdf_model = new LibRDF_Model(new LibRDF_Storage());

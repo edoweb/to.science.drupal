@@ -117,6 +117,15 @@ function edoweb_entity_info() {
           'access arguments' => array('administer edoweb_basic entities'),
         ),
       ),
+      'file' => array(
+        'label' => t('File'),
+        // 'admin' key is used by the Field UI to provide field and
+        // display UI pages.
+        'admin' => array(
+          'path' => 'admin/structure/edoweb_basic/file/manage',
+          'access arguments' => array('administer edoweb_basic entities'),
+        ),
+      ),
     ),
     // View modes allow entities to be displayed differently based on context.
     'view modes' => array(
@@ -245,13 +254,23 @@ function edoweb_menu() {
     'type' => MENU_LOCAL_TASK,
   );
 
+  // 'Files' tab for entities that can have files.
+  $items['resource/%edoweb_basic/files'] = array(
+    'title' => 'Files',
+    'page callback' => 'edoweb_basic_file',
+    'page arguments' => array(1),
+    'access callback' => '_edoweb_field_has_value_type',
+    'access arguments' => array(1, 'field_edoweb_struct_child', 'file'),
+    'type' => MENU_LOCAL_TASK,
+  );
+
   // 'Children' tab for entities that can have children.
   $items['resource/%edoweb_basic/children'] = array(
     'title' => 'Children',
     'page callback' => 'edoweb_basic_children',
     'page arguments' => array(1),
-    'access callback' => '_edoweb_child_access',
-    'access arguments' => array(1),
+    'access callback' => '_edoweb_field_access',
+    'access arguments' => array(1, array('field_edoweb_struct_child')),
     'type' => MENU_LOCAL_TASK,
   );
 
@@ -261,8 +280,8 @@ function edoweb_menu() {
     'title arguments' => array(4),
     'page callback' => 'edoweb_basic_add',
     'page arguments' => array(4, 1),
-    'access callback' => '_edoweb_child_access',
-    'access arguments' => array(1),
+    'access callback' => '_edoweb_field_access',
+    'access arguments' => array(1, array('field_edoweb_struct_child')),
     'type' => MENU_CALLBACK,
   );
 
@@ -460,17 +479,22 @@ function edoweb_basic_view($entity, $view_mode = 'tweaky') {
   $entity->content += field_attach_view($entity_type, $entity, $view_mode);
 
   // OK, Field API done, now we can set up some of our own data.
-  $entity->content['created'] = array(
+  $entity->content['bundle_type'] = array(
     '#type' => 'item',
-    '#title' => t('Created date'),
-    '#markup' => format_date($entity->created),
+    '#markup' => '<h1>'.edoweb_basic_bundle_name($entity->bundle_type).'</h1>',
     '#weight' => -1,
+  );
+
+  $entity->content['_created'] = array(
+    '#type' => 'item',
+    '#markup' => '<small>' . format_date($entity->created) . '</small>',
+    '#weight' => 1000,
   );
 
   $edoweb_api_host = variable_get('edoweb_api_host');
   $entity->content['remote_id'] = array(
     '#type' => 'item',
-    '#markup' => l('View in Edoweb API', "http://{$edoweb_api_host}/resources/{$entity->remote_id}"),
+    '#markup' => l('View in Edoweb API', "http://{$edoweb_api_host}/resource/{$entity->remote_id}"),
     '#weight' => -1,
   );
 
@@ -569,14 +593,15 @@ function edoweb_basic_add($bundle_type, $parent = NULL) {
 /**
  * Provides a wrapper on the edit form to add a new child to an entity.
  */
-function edoweb_basic_children($entity) {
+function edoweb_basic_children($entity, $bundle_types = array()) {
   $children = field_get_items('edoweb_basic', $entity, 'field_edoweb_struct_child');
   if (FALSE === $children) {
     $entities = array();
   } else {
     $child_ids = array();
     foreach ($children as $child) {
-      $child_ids[] = $child['target_id'];
+      if (empty($bundle_types) || in_array($child->bundle_type, $bundle_types))
+        $child_ids[] = $child['target_id'];
     }
     $child_entities = edoweb_basic_load_multiple($child_ids);
   }
@@ -626,6 +651,61 @@ function edoweb_basic_children($entity) {
 }
 
 /**
+ * Provides a wrapper on the edit form to add a new file to an entity.
+ */
+function edoweb_basic_file($entity) {
+  $files = field_get_items('edoweb_basic', $entity, 'field_edoweb_struct_child');
+  $file_entities = array();
+  if (FALSE !== $files) {
+    foreach ($files as $file) {
+      $file_entity = edoweb_basic_load(
+        _edoweb_storage_entity_get_remote_id($file['target_id'])
+      );
+      if ($file_entity->bundle_type == 'file') {
+        $file_entities[] = $file_entity;
+      }
+    }
+  }
+  $content = array();
+  // Load all of our child entities.
+  if (!empty($file_entities)) {
+    foreach ( $file_entities as $file_entity ) {
+      // Create tabular rows for our entities.
+      $rows[] = array(
+        'data' => array(
+          'title' => l(edoweb_basic_title($file_entity), "resource/{$file_entity->remote_id}"),
+          'url' => l(
+            $file_entity->field_edoweb_label['und'][0]['value'],
+            $file_entity->field_edoweb_datastream['und'][0]['value']
+          ),
+          'filetype' => $file_entity->field_edoweb_filetype['und'][0]['value'],
+        ),
+      );
+    }
+    // Put our entities into a themed table. See theme_table() for details.
+    $content['entity_table'] = array(
+      '#theme' => 'table',
+      '#rows' => $rows,
+      '#header' => array(t('Title'), t('Datei'), t('Type')),
+    );
+  }
+  else {
+    // There were no entities. Tell the user.
+    $content[] = array(
+      '#type' => 'item',
+      '#markup' => t('No files currently exist.'),
+    );
+  }
+
+  //$file = entity_get_controller('edoweb_basic')->create('file');
+  //$form = drupal_get_form('edoweb_basic_form', $file);
+  //$content[] = $form;
+
+  _edoweb_build_breadcrumb($entity);
+  return $content;
+}
+
+/**
  * Provides a wrapper on the edit form to add a new entity.
  */
 function edoweb_basic_import($bundle_type) {
@@ -669,12 +749,14 @@ function edoweb_basic_import_submit(&$form, &$form_state) {
   $resource_id = $form['resource_id']['#value'];
   $base_url = $form['base_url']['#value'];
   $resource_uri = sprintf($base_url, $resource_id);
+  $entity->remote_id = $resource_uri;
   try {
     $api->load($entity, $resource_uri);
     drupal_set_message(t("Imported data from ") . $resource_uri, 'status');
   } catch (LibRDF_Error $e) {
     drupal_set_message(t("Failed importing data from ") . $resource_uri, 'error');
   }
+  $entity->remote_id = 'edoweb:' . EdowebBasicController::uuid_v4();
   $form_state['redirect'] = false;
   $form = drupal_get_form('edoweb_basic_form', $entity);
   $form['#action'] = url("resource/add/{$entity->bundle_type}");
@@ -771,10 +853,21 @@ function edoweb_basic_form($form, &$form_state, $entity) {
   $fields_info = field_info_instances(
     'edoweb_basic', $entity->bundle_type
   );
+  // Set fields holding machine-generated data to read-only
+  $readonly_fields = array(
+    'field_edoweb_label',
+    'field_edoweb_filesize',
+    'field_edoweb_filetype',
+  );
   foreach ($fields_info as $field_name => $value) {
     $field_info = field_info_field($field_name);
     if ('entityreference' == $field_info['type']) {
       unset($form[$field_name]);
+    }
+    if (in_array($field_name, $readonly_fields)) {
+      $form[$field_name]['und'][0]['value']['#attributes']['readonly'] = 'readonly';
+      $form_state['values'][$field_name]['und'][0]['value'] =
+        $form[$field_name]['und'][0]['value']['#default_value'];
     }
   }
 
@@ -811,21 +904,43 @@ function edoweb_basic_form_validate($form, &$form_state) {
   field_attach_form_validate('edoweb_basic', $form_state['values']['basic_entity'], $form, $form_state);
 }
 
-
 /**
  * Form submit handler: submits basic_add_form information
  */
 function edoweb_basic_form_submit($form, &$form_state) {
+
+  // Set field data from form
   $entity = $form_state['values']['basic_entity'];
   field_attach_submit('edoweb_basic', $entity, $form, $form_state);
+
+  // Handle uploaded files by moving them from the tmp directory
+  // and storing the resulting (local) URI
+  if (_edoweb_field_access($entity, array('field_edoweb_datastream'))
+      && isset($_FILES['files']['error']['field_edoweb_datastream'])
+      && 0 === $_FILES['files']['error']['field_edoweb_datastream']
+  ) {
+    $tmp_name = $_FILES['files']['tmp_name']['field_edoweb_datastream'];
+    $file_name = $_FILES['files']['name']['field_edoweb_datastream'];
+    $file_type = $_FILES['files']['type']['field_edoweb_datastream'];
+    $file_size = $_FILES['files']['size']['field_edoweb_datastream'];
+    $file_uri = file_unmanaged_move($tmp_name);
+    $entity->field_edoweb_datastream[LANGUAGE_NONE][]['value'] = $file_uri;
+    $entity->field_edoweb_label[LANGUAGE_NONE][]['value'] = $file_name;
+    $entity->field_edoweb_filetype[LANGUAGE_NONE][]['value'] = $file_type;
+    $entity->field_edoweb_filesize[LANGUAGE_NONE][]['value'] = $file_size;
+  }
+
+  // Save the entity
   $entity = edoweb_basic_save($entity);
+
+  // Reset cache to force reload of structural metadata from API
   $parents = field_get_items('edoweb_basic', $entity, 'field_edoweb_struct_parent');
   if (FALSE !== $parents) {
     foreach($parents as $parent) {
-      // Reset cache to force reload of structural metadata from API
       cache_clear_all("field:edoweb_basic:{$parent['target_id']}", 'cache_field');
     }
   }
+
   $form_state['redirect'] = "resource/{$entity->remote_id}";
 }
 
@@ -938,9 +1053,9 @@ function edoweb_rdf_mapping() {
         //'field_edoweb_publication_freq' => array(
         //  'predicates' => array(''),
         //),
-        //'field_edoweb_urn' => array(
-        //  'predicates' => array(''),
-        //),
+        'field_edoweb_urn' => array(
+          'predicates' => array('orca:hasUrn'),
+        ),
         'field_edoweb_is_like' => array(
           'predicates' => array('umbel:isLike'),
         ),
@@ -988,6 +1103,12 @@ function edoweb_rdf_mapping() {
         'field_edoweb_publisher' => array(
           'predicates' => array('isbd:P1017'),
         ),
+        'field_edoweb_label' => array(
+          'predicates' => array('rdfs:label'),
+        ),
+        'field_edoweb_filetype' => array(
+          'predicates' => array('dc:format'),
+        ),
         // Files and parent/child relations not mapped as
         // they are not part of the descriptive metadata.
         //'field_edoweb_file' => array(
@@ -1024,6 +1145,8 @@ function edoweb_rdf_namespaces() {
     'foaf'  => 'http://xmlns.com/foaf/0.1/',
     'umbel'  => 'http://umbel.org/umbel#',
     'lv'  => 'http://purl.org/lobid/lv#',
+    'rdfs'  => 'http://www.w3.org/2000/01/rdf-schema#',
+    'orca'  => 'http://geni-orca.renci.org/owl/topology.owl#',
   );
 }
 
@@ -1076,7 +1199,7 @@ function _edoweb_http_request($request_url, $http_options) {
       case '2':
         $status_type = 'status';
         break;
-      case '3':
+      case '5':
         $status_type = 'warning';
         break;
     }
@@ -1123,10 +1246,14 @@ function _edoweb_gnd_autocomplete($endpoint, $parameter, $term) {
     'headers' => array('Accept' => 'application/json'),
   );
   $http_response = drupal_http_request($autocomplete_url, $http_options);
-  $json_data = json_decode($http_response->data);
   $matches = array();
-  foreach($json_data as $match) {
-    $matches[$match->{'value'}] = $match->{'label'};
+  if ((200 == $http_response->code) && isset($http_response->data)) {
+    $json_data = json_decode($http_response->data);
+    foreach($json_data as $match) {
+      $matches[$match->{'value'}] = $match->{'label'};
+    }
+  } else {
+    watchdog('edoweb', 'Unable to retrieve result from api.lobid.org');
   }
   drupal_json_output($matches);
 }
@@ -1136,20 +1263,36 @@ function _edoweb_is_uri($string) {
   return preg_match($pattern, $string) === 1;
 }
 
-function _edoweb_child_access($entity) {
-  // Check that the entity has at least one field_edoweb_struct_child
-  // and that the user has the proper permission.
-  $field_instances_info = field_info_instances(
-    'edoweb_basic', $entity->bundle_type
-  );
-  $entity_has_child_field = FALSE;
-  foreach ($field_instances_info as $field_name => $instance_settings) {
-    if ('field_edoweb_struct_child' == $field_name) {
-      $entity_has_child_field = TRUE;
+function _edoweb_field_has_value_type($entity, $field_name, $bundle_type) {
+  $values = field_get_items('edoweb_basic', $entity, $field_name);
+  if (FALSE === $values) return FALSE;
+  $field_has_value_type = FALSE;
+  foreach ($values as $value) {
+    $ref_entity = edoweb_basic_load(
+      _edoweb_storage_entity_get_remote_id($value['target_id'])
+    );
+    if ($ref_entity->bundle_type == $bundle_type) {
+      $field_has_value_type = TRUE;
       break;
     }
   }
-  return $entity_has_child_field && user_access('create edoweb_basic entities');
+  return $field_has_value_type;
+}
+
+function _edoweb_field_access($entity, $fields = array()) {
+  // Check that the entity has at least one of the provided
+  // fields and that the user has the proper permission.
+  $field_instances_info = field_info_instances(
+    'edoweb_basic', $entity->bundle_type
+  );
+  $entity_has_field = FALSE;
+  foreach ($field_instances_info as $field_name => $instance_settings) {
+    if (in_array($field_name, $fields)) {
+      $entity_has_field = TRUE;
+      break;
+    }
+  }
+  return $entity_has_field && user_access('create edoweb_basic entities');
 }
 
 function _edoweb_available_languages() {
@@ -1339,13 +1482,19 @@ class LinkedDataClient {
       'headers' => array('Accept' => 'application/rdf+xml'),
     );
     $http_response = _edoweb_http_request($request_url, $http_options);
-    $rdf_data = $http_response->data;
-    $rdf_subject = new LibRDF_URINode($resource_uri);
-    $rdf_parser = new LibRDF_Parser('rdfxml');
-    _edoweb_storage_entity_deserialize_rdf($entity, $rdf_subject, $rdf_data, $rdf_parser);
-    // TODO: Incorporate origin into database scheme
-    //$entity->origin = $resource_uri;
-    return TRUE;
+    if ((200 == $http_response->code) && isset($http_response->data)) {
+      $rdf_data = $http_response->data;
+      $rdf_subject = new LibRDF_URINode($resource_uri);
+      $rdf_parser = new LibRDF_Parser('rdfxml');
+      _edoweb_storage_entity_deserialize_rdf($entity, $rdf_subject, $rdf_data, $rdf_parser);
+      // TODO: Incorporate origin into database scheme
+      //$entity->origin = $resource_uri;
+    } else {
+      watchdog('edoweb', 'Unable to retrieve Linked Data from @url',
+        array('@url' => $request_url)
+      );
+      throw new LibRDF_Error();
+    }
   }
 
 }

@@ -316,6 +316,7 @@ function _edoweb_storage_entity_serialize_rdf($entity, $rdf_subject, $rdf_serial
     $rdf_predicate = new LibRDF_URINode(
       _edoweb_expand_curie($field_mapping['predicates'][0])
     );
+    $rdf_subject = _get_rdf_subject($entity, $field_name);
     try {
       $items = $wrapper->{$field_name}->value();
     } catch (EntityMetadataWrapperException $e) {
@@ -330,33 +331,21 @@ function _edoweb_storage_entity_serialize_rdf($entity, $rdf_subject, $rdf_serial
     if (!is_array($items)) {
       $items = array($items);
     }
-    // Special case: handle file fields
-    if ('field_edoweb_file' == $field_name) {
-      foreach ($items as $item) {
-        $file = file_load($item['fid']);
-        $rdf_object = new LibRDF_URINode($file->uri);
-        $rdf_statement = new LibRDF_Statement(
-          $rdf_subject, $rdf_predicate, $rdf_object
-        );
-        $rdf_model->addStatement($rdf_statement);
-      }
-    } else {
-      foreach ($items as $item) {
-        if (isset($field_mapping['type'])
-            and $field_mapping['type'] == 'rel') {
-          if (is_object($item)) {
-            $rdf_object = _edoweb_storage_entity_get_uri($item);
-          } else {
-            $rdf_object = new LibRDF_URINode($item);
-          }
+    foreach ($items as $item) {
+      if (isset($field_mapping['type'])
+          and $field_mapping['type'] == 'rel') {
+        if (is_object($item)) {
+          $rdf_object = _edoweb_storage_entity_get_uri($item);
         } else {
-          $rdf_object = new LibRDF_LiteralNode($item);
+          $rdf_object = new LibRDF_URINode($item);
         }
-        $rdf_statement = new LibRDF_Statement(
-          $rdf_subject, $rdf_predicate, $rdf_object
-        );
-        $rdf_model->addStatement($rdf_statement);
+      } else {
+        $rdf_object = new LibRDF_LiteralNode($item);
       }
+      $rdf_statement = new LibRDF_Statement(
+        $rdf_subject, $rdf_predicate, $rdf_object
+      );
+      $rdf_model->addStatement($rdf_statement);
     }
   }
   foreach (rdf_get_namespaces() as $prefix => $namespace) {
@@ -382,55 +371,57 @@ function _edoweb_storage_entity_deserialize_rdf($entity, $rdf_subject, $rdf_data
   // Skip first element, these are the rdf:type definitions
   unset($rdf_mapping[key($rdf_mapping)]);
   $wrapper = entity_metadata_wrapper(EDOWEB_ENTITY_TYPE, $entity);
+  // Modify subject URI for datastream metadata
   foreach ($rdf_mapping as $field_name => $mapping) {
     $rdf_predicate = new LibRDF_URINode(
       _edoweb_expand_curie($mapping['predicates'][0])
     );
-    // Special case for file field
-    if ('field_edoweb_file' == $field_name) {
-      foreach ($rdf_model->getTargets($rdf_subject, $rdf_predicate) as $value) {
-        $file_id = db_query(
-          'SELECT fid FROM {file_managed} WHERE uri = :uri',
-          array(':uri' => substr($value, 1, -1))
-        )->fetchField();
-        $file = file_load($file_id);
-        try {
-          $wrapper->{$field_name}[] = (array) $file;
-        } catch (EntityMetadataWrapperException $e) {
-          // TODO: log errors
-          // drupal_set_message($e->getMessage(), 'error');
-        }
-      }
-    } else {
-      foreach ($rdf_model->getTargets($rdf_subject, $rdf_predicate) as $value) {
-        try {
-          if ($value instanceOf LibRDF_LiteralNode) {
-            // Fix escaped unicode characters such as \u00E4
-            $value = json_decode('"'.$value.'"');
-            if ($wrapper->{$field_name} instanceOf EntityValueWrapper) {
-              $wrapper->{$field_name} = (string) $value;
-            } else {
-              $wrapper->{$field_name}[] = (string) $value;
-            }
+    $rdf_subject = _get_rdf_subject($entity, $field_name);
+    foreach ($rdf_model->getTargets($rdf_subject, $rdf_predicate) as $value) {
+      try {
+        if ($value instanceOf LibRDF_LiteralNode) {
+          // Fix escaped unicode characters such as \u00E4
+          $value = json_decode('"'.$value.'"');
+          if ($wrapper->{$field_name} instanceOf EntityValueWrapper) {
+            $wrapper->{$field_name} = (string) $value;
           } else {
-            //FIXME: hardcoded translation of edoweb-uri to local id
-            if ('<edoweb:' === substr($value, 0, 8)) {
-              $value = _edoweb_storage_entity_get_id($value);
-            } else {
-              $value = substr($value, 1, -1);
-            }
-            if ($wrapper->{$field_name} instanceOf EntityValueWrapper) {
-              $wrapper->{$field_name} = $value;
-            } else {
-              $wrapper->{$field_name}[] = $value;
-            }
+            $wrapper->{$field_name}[] = (string) $value;
           }
-          //drupal_set_message("Populated $field_name.");
-        } catch (EntityMetadataWrapperException $e) {
-          //drupal_set_message($e->getMessage(), 'error');
+        } else {
+          //FIXME: hardcoded translation of edoweb-uri to local id
+          if ('<edoweb:' === substr($value, 0, 8)) {
+            $value = _edoweb_storage_entity_get_id($value);
+          } else {
+            $value = substr($value, 1, -1);
+          }
+          if ($wrapper->{$field_name} instanceOf EntityValueWrapper) {
+            $wrapper->{$field_name} = $value;
+          } else {
+            $wrapper->{$field_name}[] = $value;
+          }
         }
+        //drupal_set_message("Populated $field_name.");
+      } catch (EntityMetadataWrapperException $e) {
+        //drupal_set_message($e->getMessage(), 'error');
       }
     }
+  }
+}
+
+function _get_rdf_subject($entity, $field_name) {
+  $rdf_subject = _edoweb_storage_entity_get_uri($entity);
+  $datastream_properties = array(
+    'field_edoweb_filetype',
+    'field_edoweb_label',
+    'field_edoweb_filesize',
+    'field_edoweb_datastream',
+  );
+  if ('file' == $entity->bundle_type
+      && in_array($field_name, $datastream_properties)
+  ) {
+    return new LibRDF_URINode(substr($rdf_subject, 1, -1) .  '/data');
+  } else {
+    return $rdf_subject;
   }
 }
 

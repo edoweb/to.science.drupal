@@ -57,6 +57,13 @@ function edoweb_schema() {
           'not null' => TRUE,
           'default' => 0,
         ),
+        // Update date of the entity
+        'updated' => array(
+          'description' => 'The Unix timestamp of the entity update time.',
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+        ),
         // The ID of the entity in the Edoweb API
         'remote_id' => array(
           'description' => 'The remote id of the entity, can be a URI',
@@ -78,6 +85,9 @@ function edoweb_install() {
   // Create all the fields we are adding to our entity type.
   // http://api.drupal.org/api/function/field_create_field/7
   foreach (_edoweb_installed_fields() as $field) {
+    $field['storage'] = array(
+      'type' => 'edoweb_storage',
+    );
     field_create_field($field);
   }
 
@@ -311,9 +321,24 @@ function _edoweb_installed_fields() {
       'type'        => 'text',
     ),
     array(
-      'field_name' => 'field_edoweb_file',
-      'cardinality' => FIELD_CARDINALITY_UNLIMITED,
-      'type'        => 'file',
+      'field_name' => 'field_edoweb_label',
+      'cardinality' => 1,
+      'type'        => 'text',
+    ),
+    array(
+      'field_name' => 'field_edoweb_datastream',
+      'cardinality' => 1,
+      'type'        => 'edoweb_datastream',
+    ),
+    array(
+      'field_name' => 'field_edoweb_filesize',
+      'cardinality' => 1,
+      'type'        => 'number_integer',
+    ),
+    array(
+      'field_name' => 'field_edoweb_filetype',
+      'cardinality' => 1,
+      'type'        => 'text',
     ),
     array(
       'field_name' => 'field_edoweb_struct_child',
@@ -384,6 +409,7 @@ function _edoweb_installed_instances() {
         'journal',
         'issue',
         'article',
+        'file',
       ),
     ),
     array(
@@ -639,65 +665,147 @@ function _edoweb_installed_instances() {
       ),
     ),
     array(
-      'field_name'  => 'field_edoweb_file',
+      'field_name'  => 'field_edoweb_label',
+      'label' => 'Label',
+      'description' => 'A generic label',
+      'bundles'      => array(
+        'file',
+      ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_filesize',
+      'label' => 'Dateigröße',
+      'description' => '',
+      'bundles'      => array(
+        'file',
+      ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_filetype',
+      'label' => 'Dateityp',
+      'description' => '',
+      'bundles'      => array(
+        'file',
+      ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_datastream',
       'label' => 'Datei',
       'description' => '',
       'bundles'      => array(
+        'file',
+      ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_struct_child',
+      'label'       => $t('Child'),
+      'bundles'     => array(
         'monograph',
+      ),
+      'settings'    => array(
+        'target_type' => 'edoweb_basic',
+        'handler_settings' => array(
+          'target_bundles' => array(
+            'file' => 'file',
+          ),
+        ),
+      ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_struct_child',
+      'label'       => $t('Child'),
+      'bundles'     => array(
         'journal',
+      ),
+      'settings'    => array(
+        'target_type' => 'edoweb_basic',
+        'handler_settings' => array(
+          'target_bundles' => array(
+            'volume' => 'volume',
+            'issue' => 'issue',
+            'article' => 'article',
+            'file' => 'file',
+          ),
+        ),
+      ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_struct_child',
+      'label'       => $t('Child'),
+      'bundles'     => array(
         'volume',
+      ),
+      'settings'    => array(
+        'target_type' => 'edoweb_basic',
+        'handler_settings' => array(
+          'target_bundles' => array(
+            'issue' => 'issue',
+            'article' => 'article',
+            'file' => 'file',
+          ),
+        ),
+      ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_struct_child',
+      'label'       => $t('Child'),
+      'bundles'     => array(
         'issue',
+      ),
+      'settings'    => array(
+        'target_type' => 'edoweb_basic',
+        'handler_settings' => array(
+          'target_bundles' => array(
+            'article' => 'article',
+            'file' => 'file',
+          ),
+        ),
+      ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_struct_parent',
+      'label'       => $t('Parent'),
+      'bundles'     => array(
+        'volume',
+      ),
+      'settings'    => array(
+        'target_type' => 'edoweb_basic',
+        'handler_settings' => array(
+          'target_bundles' => array(
+            'journal' => 'journal',
+          ),
+        ),
+      ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_struct_parent',
+      'label'       => $t('Parent'),
+      'bundles'     => array(
+        'issue',
+      ),
+      'settings'    => array(
+        'target_type' => 'edoweb_basic',
+        'handler_settings' => array(
+          'target_bundles' => array(
+            'journal' => 'journal',
+            'volume' => 'volume',
+          ),
+        ),
+      ),
+    ),
+    array(
+      'field_name'  => 'field_edoweb_struct_parent',
+      'label'       => $t('Parent'),
+      'bundles'     => array(
         'article',
       ),
       'settings'    => array(
-        'file_extensions' => 'pdf',
-        'max_filesize' => '104857600',
-      ),
-    ),
-    array(
-      'field_name'  => 'field_edoweb_struct_child',
-      'label'       => $t('Child'),
-      'bundles'     => array(
-        'journal',
-      ),
-      'settings'    => array(
         'target_type' => 'edoweb_basic',
         'handler_settings' => array(
           'target_bundles' => array(
+            'journal' => 'journal',
             'volume' => 'volume',
             'issue' => 'issue',
-            'article' => 'article',
-          ),
-        ),
-      ),
-    ),
-    array(
-      'field_name'  => 'field_edoweb_struct_child',
-      'label'       => $t('Child'),
-      'bundles'     => array(
-        'volume',
-      ),
-      'settings'    => array(
-        'target_type' => 'edoweb_basic',
-        'handler_settings' => array(
-          'target_bundles' => array(
-            'issue' => 'issue',
-            'article' => 'article',
-          ),
-        ),
-      ),
-    ),
-    array(
-      'field_name'  => 'field_edoweb_struct_child',
-      'label'       => $t('Child'),
-      'bundles'     => array(
-        'issue',
-      ),
-      'settings'    => array(
-        'target_type' => 'edoweb_basic',
-        'handler_settings' => array(
-          'target_bundles' => array(
-            'article' => 'article',
           ),
         ),
       ),
@@ -706,46 +814,17 @@ function _edoweb_installed_instances() {
       'field_name'  => 'field_edoweb_struct_parent',
       'label'       => $t('Parent'),
       'bundles'     => array(
-        'volume',
+        'file',
       ),
       'settings'    => array(
         'target_type' => 'edoweb_basic',
         'handler_settings' => array(
           'target_bundles' => array(
-            'journal' => 'journal',
-          ),
-        ),
-      ),
-    ),
-    array(
-      'field_name'  => 'field_edoweb_struct_parent',
-      'label'       => $t('Parent'),
-      'bundles'     => array(
-        'issue',
-      ),
-      'settings'    => array(
-        'target_type' => 'edoweb_basic',
-        'handler_settings' => array(
-          'target_bundles' => array(
-            'journal' => 'journal',
-            'volume' => 'volume',
-          ),
-        ),
-      ),
-    ),
-    array(
-      'field_name'  => 'field_edoweb_struct_parent',
-      'label'       => $t('Parent'),
-      'bundles'     => array(
-        'article',
-      ),
-      'settings'    => array(
-        'target_type' => 'edoweb_basic',
-        'handler_settings' => array(
-          'target_bundles' => array(
+            'monograph' => 'monograph',
             'journal' => 'journal',
             'volume' => 'volume',
             'issue' => 'issue',
+            'article' => 'article',
           ),
         ),
       ),
@@ -862,6 +941,7 @@ function edoweb_uninstall() {
   field_attach_delete_bundle('edoweb_basic', 'volume');
   field_attach_delete_bundle('edoweb_basic', 'issue');
   field_attach_delete_bundle('edoweb_basic', 'article');
+  field_attach_delete_bundle('edoweb_basic', 'file');
 
   // Delete field instances for now.
   // Check status of http://drupal.org/node/1015846
