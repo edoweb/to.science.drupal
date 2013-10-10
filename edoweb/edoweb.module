@@ -254,6 +254,15 @@ function edoweb_menu() {
     'type' => MENU_LOCAL_TASK,
   );
 
+  // 'Admin' tab for an individual entity page.
+  $items['resource/%edoweb_basic/admin'] = array(
+    'title' => 'Admin',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('edoweb_basic_admin', 1),
+    'access arguments' => array('edit any edoweb_basic entity'),
+    'type' => MENU_LOCAL_TASK,
+  );
+
   // 'Files' tab for entities that can have files.
   $items['resource/%edoweb_basic/files'] = array(
     'title' => 'Files',
@@ -281,7 +290,7 @@ function edoweb_menu() {
     'page callback' => 'edoweb_basic_add',
     'page arguments' => array(4, 1),
     'access callback' => '_edoweb_field_access',
-    'access arguments' => array(1, array('field_edoweb_struct_child')),
+    'access arguments' => array(1, array('field_edoweb_struct_child'), 'create edoweb_basic entities'),
     'type' => MENU_CALLBACK,
   );
 
@@ -318,14 +327,16 @@ function edoweb_menu() {
  */
 function edoweb_info_page() {
   $page = array_key_exists('page', $_GET) ? $_GET['page'] : 0;
-  $content['add monograph'] = array(
-    '#type' => 'item',
-    '#markup' => l(t('Add a monograph'), 'resource/add/monograph'),
-  );
-  $content['add journal'] = array(
-    '#type' => 'item',
-    '#markup' => l(t('Import a journal'), 'resource/import/journal'),
-  );
+  if (user_access('create edoweb_basic entities')) {
+    $content['add monograph'] = array(
+      '#type' => 'item',
+      '#markup' => l(t('Add a monograph'), 'resource/add/monograph'),
+    );
+    $content['add journal'] = array(
+      '#type' => 'item',
+      '#markup' => l(t('Import a journal'), 'resource/import/journal'),
+    );
+  }
   $content['preface'] = array(
     '#type' => 'item',
     '#markup' => t('List of all Edoweb entities')
@@ -633,17 +644,19 @@ function edoweb_basic_children($entity, $bundle_types = array()) {
     );
   }
 
-  // Fetch and link to add possible child bundles
-  $field_info_instance = field_info_instance(
-    'edoweb_basic', 'field_edoweb_struct_child', $entity->bundle_type
-  );
-  $child_bundles = $field_info_instance['settings']['handler_settings']['target_bundles'];
-  foreach ($child_bundles as $child_bundle) {
-    $child_bundle_label = edoweb_basic_bundle_name($child_bundle);
-    $content[] = array(
-      '#type' => 'item',
-      '#markup' => l(t("Add $child_bundle_label"), current_path() .  "/add/$child_bundle"),
+  if (user_access('create edoweb_basic entities')) {
+    // Fetch and link to add possible child bundles
+    $field_info_instance = field_info_instance(
+      'edoweb_basic', 'field_edoweb_struct_child', $entity->bundle_type
     );
+    $child_bundles = $field_info_instance['settings']['handler_settings']['target_bundles'];
+    foreach ($child_bundles as $child_bundle) {
+      $child_bundle_label = edoweb_basic_bundle_name($child_bundle);
+      $content[] = array(
+        '#type' => 'item',
+        '#markup' => l(t("Add $child_bundle_label"), current_path() .  "/add/$child_bundle"),
+      );
+    }
   }
 
   _edoweb_build_breadcrumb($entity);
@@ -706,7 +719,57 @@ function edoweb_basic_file($entity) {
 }
 
 /**
- * Provides a wrapper on the edit form to add a new entity.
+ * Provides a form to administrate entities.
+ */
+function edoweb_basic_admin($form, &$form_state, $entity) {
+  $form['basic_entity'] = array(
+    '#type' => 'value',
+    '#value' => $entity,
+  );
+  $form['reload'] = array(
+    '#type' => 'submit',
+    '#value' => t('Reload'),
+    '#submit' => array('edoweb_basic_admin_reload'),
+    '#weight' => 100,
+  );
+  $form['delete'] = array(
+    '#type' => 'submit',
+    '#value' => t('Delete'),
+    '#submit' => array('edoweb_basic_admin_delete'),
+    '#weight' => 200,
+  );
+  return $form;
+}
+
+/**
+ * Form reset handler.
+ *
+ */
+function edoweb_basic_admin_reload( $form , &$form_state ) {
+  $entity = $form_state['values']['basic_entity'];
+  cache_clear_all("field:edoweb_basic:{$entity->local_id}", 'cache_field');
+  drupal_set_message(t('The entity %id has been reloaded.',
+    array('%id' => $entity->remote_id))
+  );
+  $form_state['redirect'] = 'resource/' . $entity->remote_id;
+}
+
+/**
+ * Form deletion handler.
+ *
+ * @TODO: Confirm deletion
+ */
+function edoweb_basic_admin_delete( $form , &$form_state ) {
+  $entity = $form_state['values']['basic_entity'];
+  edoweb_basic_delete($entity);
+  drupal_set_message(t('The entity %id has been deleted',
+    array('%id' => $entity->remote_id))
+  );
+  $form_state['redirect'] = 'resource';
+}
+
+/**
+ * Provides a form to import entities from linked data.
  */
 function edoweb_basic_import($bundle_type) {
   $entity = entity_get_controller('edoweb_basic')->create($bundle_type);
@@ -883,12 +946,6 @@ function edoweb_basic_form($form, &$form_state, $entity) {
     '#weight' => 150,
     '#limit_validation_errors' => array(),
   );
-  $form['delete'] = array(
-    '#type' => 'submit',
-    '#value' => t('Delete'),
-    '#submit' => array('edoweb_basic_edit_delete'),
-    '#weight' => 200,
-  );
 
   _edoweb_build_breadcrumb($entity);
   return $form;
@@ -942,20 +999,6 @@ function edoweb_basic_form_submit($form, &$form_state) {
   }
 
   $form_state['redirect'] = "resource/{$entity->remote_id}";
-}
-
-/**
- * Form deletion handler.
- *
- * @TODO: Confirm deletion
- */
-function edoweb_basic_edit_delete( $form , &$form_state ) {
-  $entity = $form_state['values']['basic_entity'];
-  edoweb_basic_delete($entity);
-  drupal_set_message(t('The entity %id has been deleted',
-    array('%id' => $entity->remote_id))
-  );
-  $form_state['redirect'] = 'resource';
 }
 
 /**
@@ -1279,7 +1322,7 @@ function _edoweb_field_has_value_type($entity, $field_name, $bundle_type) {
   return $field_has_value_type;
 }
 
-function _edoweb_field_access($entity, $fields = array()) {
+function _edoweb_field_access($entity, $fields = array(), $permissions = null) {
   // Check that the entity has at least one of the provided
   // fields and that the user has the proper permission.
   $field_instances_info = field_info_instances(
@@ -1292,7 +1335,11 @@ function _edoweb_field_access($entity, $fields = array()) {
       break;
     }
   }
-  return $entity_has_field && user_access('create edoweb_basic entities');
+  if (isset($permission)) {
+    return $entity_has_field && user_access($permissions);
+  } else {
+    return $entity_has_field;
+  }
 }
 
 function _edoweb_available_languages() {

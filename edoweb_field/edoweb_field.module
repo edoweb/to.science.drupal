@@ -223,7 +223,10 @@ function _edoweb_field_field_get_label($resource_uri) {
   $rdf_resource_uri = new LibRDF_URINode($resource_uri);
   try {
     $rdf_model->loadStatementsFromString($rdf_parser, $rdf_data);
-    $resource_label = $rdf_model->getTarget($rdf_resource_uri, $rdf_label_uri);
+    // Fix escaped unicode characters such as \u00E4
+    $resource_label = json_decode(
+      '"'.$rdf_model->getTarget($rdf_resource_uri, $rdf_label_uri).'"'
+    );
   } catch (LibRDF_Error $e) {
     $resource_label = "Label for $resource_uri";
   } catch (LibRDF_LookupError $e) {
