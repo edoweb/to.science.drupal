@@ -348,9 +348,8 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
     // Fetch resource list
     $http_response = $this->_http_get($http_url, 'application/json');
     if ((200 != $http_response->code) || !isset($http_response->data)) {
-      watchdog('edoweb_storage', 'Unable to import @id from @api.',
+      watchdog('edoweb_storage', 'Unable to fetch resource listing from @api.',
         array(
-          '@id' => $entity->remote_id,
           '@api' => variable_get('edoweb_api_host'),
         )
       );

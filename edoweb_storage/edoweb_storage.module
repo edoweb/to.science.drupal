@@ -51,7 +51,7 @@ function edoweb_storage_configuration_form($form, &$form_state) {
     '#type' => 'textfield',
     '#default_value' => variable_get(
       'edoweb_api_host',
-      'orthos.hbz-nrw.de'
+      'api.localhost'
     ),
     '#title' => t('API host'),
     '#description' => t('The hostname or IP address of the API, without leading http://'),
@@ -63,7 +63,10 @@ function edoweb_storage_configuration_form($form, &$form_state) {
   // Text field for api user.
   $form['edoweb_api_user'] = array(
     '#type' => 'textfield',
-    '#default_value' => variable_get('edoweb_api_user'),
+    '#default_value' => variable_get(
+      'edoweb_api_user',
+      'admin'
+    ),
     '#title' => t('API user'),
     '#description' => t('The username to authorize with.'),
     '#size' => 40,
@@ -74,7 +77,10 @@ function edoweb_storage_configuration_form($form, &$form_state) {
   // Password field for api user.
   $form['edoweb_api_password'] = array(
     '#type' => 'password',
-    '#default_value' => variable_get('edoweb_api_password'),
+    '#default_value' => variable_get(
+      'edoweb_api_password',
+      'admin'
+    ),
     '#title' => t('API password'),
     '#description' => t('The password to authorize with.'),
     '#size' => 40,
@@ -503,43 +509,3 @@ function _edoweb_expand_curie($curie) {
   return $rdf_namespaces[$curie_prefix] . $curie_local;
 }
 
-function _edoweb_file_save(stdClass $file, $entity) {
-  $file->timestamp = REQUEST_TIME;
-
-  module_invoke_all('file_presave', $file);
-  module_invoke_all('entity_presave', $file, 'file');
-
-  try {
-    if (empty($file->fid)) {
-      drupal_write_record('file_managed', $file);
-      file_usage_add($file, 'file', 'edoweb_basic', $entity->local_id);
-      // Inform modules about the newly added file.
-      module_invoke_all('file_insert', $file);
-      module_invoke_all('entity_insert', $file, 'file');
-    } else {
-      drupal_write_record('file_managed', $file, 'fid');
-      // Inform modules that the file has been updated.
-      module_invoke_all('file_update', $file);
-      module_invoke_all('entity_update', $file, 'file');
-    }
-  } catch (PDOException $e) {
-    drupal_set_message("Could not write file record for {$file->filename}", 'error');
-  }
-
-  return $file;
-}
-
-function _edoweb_entity_files_remove($entity) {
-  $file_usages = db_select('file_usage', 'fu')
-    ->fields('fu')
-    ->condition('id', $entity->local_id, '=')
-    ->condition('type', 'edoweb_basic', '=')
-    ->execute();
-  foreach ($file_usages as $file_usage) {
-    $file = file_load($file_usage->fid);
-    $file_deleted = db_delete('file_managed')
-      ->condition('fid', $file->fid, '=')
-      ->execute();
-    file_usage_delete($file, 'file', 'edoweb_basic', $entity->local_id);
-  }
-}

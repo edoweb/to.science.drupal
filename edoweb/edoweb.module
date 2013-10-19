@@ -1483,7 +1483,6 @@ class EdowebBasicController
       $transaction = db_transaction();
       try {
         foreach ($entities as $entity) {
-          _edoweb_entity_files_remove($entity);
           $children = field_get_items('edoweb_basic', $entity, 'field_edoweb_struct_child');
           if (FALSE !== $children) {
             foreach($children as $child_id) {

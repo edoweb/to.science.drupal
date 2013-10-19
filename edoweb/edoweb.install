@@ -112,20 +112,6 @@ function edoweb_install() {
     user_role_grant_permissions($role->rid, $permissions[$role->name]);
   }
 
-  // Create users
-  foreach (_edoweb_installed_users() as $user) {
-    // Fetch from DB to get role id
-    $role_ids = array();
-    foreach ($user['roles'] as $role_name) {
-      $role = user_role_load_by_name($role_name);
-      if (FALSE !== $role) {
-        $role_ids[$role->rid] = $role->name;
-      }
-    }
-    $user['roles'] = $role_ids;
-    user_save(null, $user);
-  }
-
   // Generate list of available languages
   _edoweb_generate_available_languages(
     dirname(__FILE__) . '/iso639-2.nt',
@@ -867,34 +853,6 @@ function _edoweb_installed_roles() {
 }
 
 /**
- * Return a structured array defining the roles for this content type.
- */
-function _edoweb_installed_users() {
-  return array(
-    array(
-      'name' => 'edoweb',
-      'pass' => 'edoweb2013',
-      'mail' => 'edoweb@localhost.localdomain',
-      'init' => 'edoweb@localhost.localdomain',
-      'status' => 1,
-      'roles' => array(
-        'edoweb_backend_user'
-      ),
-    ),
-    array(
-      'name' => 'edoweb_admin',
-      'pass' => 'edoweb2013',
-      'mail' => 'edoweb@localhost.localdomain',
-      'init' => 'edoweb@localhost.localdomain',
-      'status' => 1,
-      'roles' => array(
-        'edoweb_backend_admin'
-      ),
-    )
-  );
-}
-
-/**
  * Generate an array containing the available languages from ISO 639-2.
  */
 function _edoweb_generate_available_languages($input_file, $output_file) {
@@ -954,12 +912,6 @@ function edoweb_uninstall() {
       $instance['bundle'] = $bundle;
       field_delete_instance($instance);
     }
-  }
-
-  // Delete users
-  foreach (_edoweb_installed_users() as $user) {
-    $account = user_load_by_name($user['name']);
-    user_delete($account->uid);
   }
 
   // Revoke permissions and delete roles
