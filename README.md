@@ -27,7 +27,7 @@ Download non Drupal-core dependency modules:
 
     $ cd sites/all/modules
     $ curl http://ftp.drupal.org/files/projects/entity-7.x-1.1.tar.gz | tar xz
-    $ curl http://ftp.drupal.org/files/projects/entityreference-7.x-1.0.tar.gz | tar xz
+    $ curl http://ftp.drupal.org/files/projects/entity_js-7.x-1.0-alpha3.tar.gz | tar xz
     $ curl http://ftp.drupal.org/files/projects/ctools-7.x-1.3.tar.gz | tar xz
 
 Activate "Edoweb Entities" module at (e.g. at

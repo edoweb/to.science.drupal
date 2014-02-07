@@ -3,3 +3,4 @@ description = Custom Edoweb field types and widgets
 core = 7.x
 package = Edoweb
 dependencies[] = field
+dependencies[] = entity_js

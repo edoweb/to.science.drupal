@@ -28,7 +28,7 @@ function edoweb_field_field_info() {
       'description' => t('This field holds the URI of a linked data resource'),
       'default_widget' => 'edoweb_autocomplete_widget',
       'default_formatter' => 'edoweb_ld_format',
-      'property_type' => 'uri',
+      'property_type' => 'text',
     ),
     'edoweb_date' => array(
       'label' => t('A field for dates'),
@@ -45,7 +45,7 @@ function edoweb_field_field_info() {
       'instance_settings' => array('text_processing' => 0),
       'default_widget' => 'edoweb_upload_widget',
       'default_formatter' => 'edoweb_datastream_format',
-      'property_type' => 'uri',
+      'property_type' => 'text',
     ),
   );
 }
@@ -157,16 +157,22 @@ function edoweb_field_field_is_empty($item, $field) {
  * @see field_example_field_widget_form()
  */
 function edoweb_field_field_widget_info() {
+
   return array(
     'edoweb_autocomplete_widget' => array(
       'label' => t('Auto-complete'),
       'field types' => array('edoweb_ld_reference'),
+      'behaviors' => array(
+        'multiple values' => FIELD_BEHAVIOR_CUSTOM,
+        'default value' => FIELD_BEHAVIOR_NONE,
+      ),
     ),
     'edoweb_upload_widget' => array(
       'label' => t('File Upload'),
       'field types' => array('edoweb_datastream'),
     ),
   );
+
 }
 
 /**
@@ -194,22 +200,77 @@ function edoweb_field_field_formatter_view($entity_type, $entity, $field, $insta
   $elements = array();
   switch ($display['type']) {
     case 'edoweb_ld_format':
-      foreach ($items as $delta => $item) {
-        $elements[$delta] = array(
-          '#markup' => l(_edoweb_field_ld_reference_get_label($field, $item['value']), $item['value']),
-        );
-      }
+      $elements = _edoweb_field_embed_entities($items, $entity->remote_id);
       break;
     case 'edoweb_datastream_format':
+      $edoweb_api_host = variable_get('edoweb_api_host');
       foreach ($items as $delta => $item) {
         $elements[$delta] = array(
-          '#markup' => l($item['value'], $item['value']),
+          '#markup' => l($item['value'], "http://$edoweb_api_host/resource/{$item['value']}"),
         );
       }
       break;
   }
   return $elements;
 }
+
+function _edoweb_field_embed_entities($items, $referrer = null, $collapsed = 'collapsed') {
+  drupal_add_library('system', 'drupal.collapse');
+  drupal_add_js(
+    drupal_get_path('module', 'edoweb_field') . '/edoweb_field_reference.js'
+  );
+  $elements = array();
+  foreach ($items as $delta => $item) {
+    $remote_id = _edoweb_compact_uri($item['value']);
+    if (!$remote_id) continue;
+    $elements[$delta] = array(
+      '#type' => 'fieldset',
+      '#attributes' => array(
+        'class' => array('collapsible', $collapsed, 'edoweb_ld_reference'),
+      ),
+      '#title' => $remote_id,
+      'entity' => array(
+        '#type' => 'hidden',
+        '#value' => $remote_id,
+      ),
+    );
+  }
+  return $elements;
+}
+
+function _edoweb_field_render_embedded_entity(
+  $entity, $collapsed = 'collapsed', $as_form = FALSE
+) {
+  drupal_add_library('system', 'drupal.collapse');
+  if ($as_form) {
+    $form_state = array();
+    $entity_data = array();
+    field_attach_form(
+      EDOWEB_ENTITY_TYPE, $entity, $entity_data, $form_state
+    );
+    $entity_data['remote_id'] = array(
+      '#type' => 'hidden',
+      '#value' => $entity->remote_id,
+    );
+    $entity_data['bundle_type'] = array(
+      '#type' => 'hidden',
+      '#value' => $entity->bundle_type,
+    );
+  } else {
+    $entity_data = entity_view(
+      EDOWEB_ENTITY_TYPE, array($entity), 'teaser'
+    );
+  }
+  return array(
+    '#type' => 'fieldset',
+    '#attributes' => array(
+      'class' => array('collapsible', $collapsed),
+    ),
+    '#title' => entity_label(EDOWEB_ENTITY_TYPE, $entity) . " ({$entity->remote_id})",
+    'entity' => $entity_data,
+  );
+}
+
 
 /**
  * Implements hook_field_widget_form().
@@ -219,56 +280,260 @@ function edoweb_field_field_formatter_view($entity_type, $entity, $field, $insta
  *
  */
 function edoweb_field_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
-
-  // Overwrite default autocomplete behaviour
-  drupal_add_js(
-    drupal_get_path('module', 'edoweb_field') . '/edoweb_field_autocomplete.js',
-    array('weight' => '100')
-  );
-
   switch ($instance['widget']['type']) {
     case 'edoweb_autocomplete_widget':
-      $widget = $element;
-      $widget['#delta'] = $delta;
 
-      $endpoint = $field['settings']['endpoint'];
-      $parameter = $field['settings']['parameter'];
-
-      $value = isset($items[$delta]['value']) ? $items[$delta]['value'] : '';
-      // Check if value was set in form input, e.g. when this function
-      // is called by ajax via the "Add another item" button.
-      $value = isset($form_state['input'][$field['field_name']]['und'][$delta]['value']) ?
-        $form_state['input'][$field['field_name']]['und'][$delta]['value'] : $value;
-
-      if ($value != '') {
-        $widget += array(
-          '#type' => 'hidden',
-          '#autocomplete_path' => "edoweb/autocomplete/{$field['field_name']}",
-          '#value' => $value,
-        );
-        $element['label'] = array(
-          '#type' => 'textfield',
-          '#value' => _edoweb_field_ld_reference_get_label($field, $value),
-          '#disabled' => TRUE,
-          '#attributes' => array(
-            'class' => array('autocomplete-selected'),
-          ),
-        );
-        $element['remove'] = array(
-          '#type' => 'item',
-          '#markup' => '<a href="#" class="autocomplete-remove">[remove]</a>',
-        );
-      } else {
-        $widget += array(
-          '#type' => 'textfield',
-          '#autocomplete_path' => "edoweb/autocomplete/{$field['field_name']}",
-        );
-      }
-      $widget += array(
-        '#element_validate' => array('_edoweb_field_ld_reference_validate'),
+      // Add autocomplete JS
+      drupal_add_library('system', 'ui.autocomplete');
+      drupal_add_js(
+        drupal_get_path('module', 'edoweb_field') . '/edoweb_field_autocomplete.js'
       );
-      $element['value'] = $widget;
+
+      // The entity being edited
+      $entity = $form['#entity'];
+
+      // Get field configuration
+      $field_info = field_info_field($field['field_name']);
+      $field_name = $field_info['field_name'];
+      $field_cardinality = $field_info['cardinality'];
+
+      $handler_settings = array_key_exists(
+        'handler_settings', $field_info['settings']
+      ) ? $field_info['settings']['handler_settings']
+        : false;
+
+      $embedded_creation = $handler_settings && array_key_exists(
+        'embedded_creation', $handler_settings
+      ) ? $handler_settings['embedded_creation']
+        : false;
+
+      // Submitted search term
+      if (array_key_exists('values', $form_state)
+          && array_key_exists('edoweb_autocomplete_widget', $form_state['values'])
+          && array_key_exists($field_name, $form_state['values']['edoweb_autocomplete_widget'])
+      ) {
+        $term = $form_state['values']['edoweb_autocomplete_widget'][$field_name]['search'];
+      } else {
+        $term = '';
+      }
+
+      // Widget Fieldset
+      $element += array(
+        '#type' => 'fieldset',
+      );
+
+      // Reload items from form_state values
+      if (array_key_exists('values', $form_state)) {
+        $items = array();
+        if (array_key_exists($field_name, $form_state['values'])) {
+          foreach ($form_state['values'][$field_name][LANGUAGE_NONE] as $value) {
+            array_push($items, $value);
+          }
+        }
+      }
+
+      $page = 0;
+      // Handle button events
+      if (array_key_exists('triggering_element', $form_state)) {
+        $triggering_element = $form_state['triggering_element']['#name'];
+        $split_pos = strrpos($triggering_element, '_');
+        $widget_name = substr($triggering_element, 0, $split_pos);
+        $index = substr($triggering_element, $split_pos + 1);
+        // Handle add event
+        if ($widget_name == "edoweb_autocomplete_widget_add_{$field_name}") {
+          $element['#prefix'] = '<a name="focus"></a>';
+          $added_value =
+            $form_state['values']['edoweb_autocomplete_widget'][$field_name]['option'][$index]['value'];
+          if ($added_value != '') {
+            if ($index === 'embedded' && $embedded_creation) {
+              $added_entity = entity_get_controller('edoweb_basic')->create($added_value);
+              entity_get_controller('edoweb_basic')->save($added_entity);
+              array_unshift($items, array('value' => $added_entity->remote_id));
+            } else {
+              array_unshift($items, array('value' => $added_value));
+            }
+          }
+          $term = '';
+        }
+        if ($widget_name == "edoweb_autocomplete_widget_search_{$field_name}_page") {
+          $page = (int) $index;
+        }
+      }
+
+      // Handle remove event - because of the way drupal works, the
+      // value needs to be empty but still present in the array, i.e.
+      // unset($items[$i]) will not work! This is why we need to track
+      // the actual count of set values separately in order to properly
+      // handle cardinality limits.
+      $value_count = 0;
+      foreach (array_keys($items) as $i) {
+        if (array_key_exists('triggering_element', $form_state)) {
+          if ($form_state['triggering_element']['#name']
+              == "edoweb_autocomplete_widget_remove_{$field_name}_{$i}"
+          ) {
+            $form_state['values'][$field_name][LANGUAGE_NONE][$i]['value'] = '';
+            $items[$i]['value'] = '';
+            $element['#prefix'] = '<a name="focus"></a>';
+          }
+        }
+        if ($items[$i]['value'] != '') {
+          $value_count++;
+        }
+      }
+
+      // Fieldset for search elements
+      $element['edoweb_autocomplete_widget'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Hinzufügen'),
+        '#parents' => array(
+          'edoweb_autocomplete_widget', $field_name
+        ),
+      );
+
+      // Textfield for search input
+      $element['edoweb_autocomplete_widget']['search'] = array(
+        '#type' => 'textfield',
+        '#default_value' => $term,
+        '#parents' => array(
+          'edoweb_autocomplete_widget', $field_name, 'search'
+        ),
+        '#attributes' => array(
+          'class' => array(
+            'edoweb_autocomplete_widget',
+            $field_name,
+            $instance['bundle']
+          ),
+        ),
+      );
+
+      // Submit button for search
+      $element['edoweb_autocomplete_widget']['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Suchen'),
+        '#name' => "edoweb_autocomplete_widget[$field_name][submit]",
+        '#parents' => array(
+          'edoweb_autocomplete_widget', $field_name, 'submit'
+        ),
+        '#submit' => array('edoweb_autocomplete_widget_update_value'),
+      );
+
+      // Search result listing
+      if ($term != '') {
+        $matches = array_values(
+          _edoweb_lookup($entity->bundle_type, $field_name, $term, $page)
+        );
+        if ($embedded_creation) {
+          $init_val = array();
+          $init_val[LANGUAGE_NONE][0]['value'] = $term;
+          $embedded_entity = entity_get_controller('edoweb_basic')->create(
+            array(
+              'bundle_type' => $embedded_creation['bundle'],
+              'remote_id' => 'local:' . EdowebBasicController::uuid_v4(),
+              $embedded_creation['field'] => $init_val,
+            )
+          );
+          $matches['embedded'] = $embedded_entity;
+        }
+        foreach ($matches as $i => $match) {
+          LinkedDataClient::setTripleStore($match->getSource());
+          if ($i === 'embedded') {
+            $element['edoweb_autocomplete_widget']['option'][$i]
+              = _edoweb_field_render_embedded_entity($match, false, true);
+            $element['edoweb_autocomplete_widget']['option'][$i] += array(
+              '#description' => t('Wenn die Suche nicht erfolgreich war, kann hier neu erfasst werde.'),
+            );
+            $element['edoweb_autocomplete_widget']['option'][$i]['entity']['#parents'] = array(
+              'edoweb_autocomplete_widget', $field_name, 'option', $i, 'value'
+            );
+          } else {
+            $element['edoweb_autocomplete_widget']['option'][$i]
+              = _edoweb_field_render_embedded_entity($match);
+            $element['edoweb_autocomplete_widget']['option'][$i]['value'] = array(
+              '#type' => 'hidden',
+              '#value' => $match->remote_id,
+              '#parents' => array(
+                'edoweb_autocomplete_widget', $field_name, 'option', $i, 'value'
+              ),
+            );
+          }
+          $element['edoweb_autocomplete_widget']['option'][$i]['add'] = array(
+            '#type' => 'submit',
+            '#name' => "edoweb_autocomplete_widget_add_{$field_name}_{$i}",
+            '#value' => t('Hinzufügen'),
+            '#submit' => array('edoweb_autocomplete_widget_update_value'),
+            '#parents' => array(
+              'edoweb_autocomplete_widget', $field_name, 'option', $i, 'add'
+            ),
+          );
+          if (($field_cardinality != FIELD_CARDINALITY_UNLIMITED)
+              && ($value_count >= $field_cardinality)
+          ) {
+            $element['edoweb_autocomplete_widget']['option'][$i]['add']['#disabled'] = TRUE;
+          }
+        }
+
+        // Paging
+        $next_page = (count($matches) < 10) ? FALSE : $page + 1;
+        $prev_page = ($page < 1) ? FALSE : $page - 1;
+
+        if ($prev_page === 0 || $prev_page) {
+          // Submit button for previous page
+          $element['edoweb_autocomplete_widget']['prev_page'] = array(
+            '#type' => 'submit',
+            '#value' => t('<'),
+            '#name' => "edoweb_autocomplete_widget_search_{$field_name}_page_{$prev_page}",
+            '#parents' => array(
+              'edoweb_autocomplete_widget', $field_name, 'prev_page'
+            ),
+            '#submit' => array('edoweb_autocomplete_widget_update_value'),
+          );
+        }
+        if ($next_page) {
+          // Submit button for next page
+          $element['edoweb_autocomplete_widget']['next_page'] = array(
+            '#type' => 'submit',
+            '#value' => t('>'),
+            '#name' => "edoweb_autocomplete_widget_search_{$field_name}_page_{$next_page}",
+            '#parents' => array(
+              'edoweb_autocomplete_widget', $field_name, 'next_page'
+            ),
+            '#submit' => array('edoweb_autocomplete_widget_update_value'),
+          );
+        }
+        $element['#prefix'] = '<a name="focus"></a>';
+        LinkedDataClient::setTripleStore(null);
+      }
+
+      // List items
+      $element['data'] = array(
+        '#parents' => array(
+          'edoweb_autocomplete_widget', $field_name, 'data'
+        ),
+      );
+      $referrer = isset($entity->remote_id) ? $entity->remote_id : null;
+      $element['data'] += _edoweb_field_embed_entities(
+        $items, $referrer
+      );
+      foreach (array_keys($items) as $i) {
+        // Hidden inputs for values
+        $element[$i]['value'] = array(
+          '#type' => 'hidden',
+          '#value' => $items[$i]['value'],
+        );
+        if (!edoweb_field_field_is_empty($items[$i], $field)) {
+          // Submit button to remove value
+          $element['data'][$i]['remove'] = array(
+            '#type' => 'submit',
+            '#name' => "edoweb_autocomplete_widget_remove_{$field_name}_{$i}",
+            '#value' => t('Entfernen'),
+            '#submit' => array('edoweb_autocomplete_widget_update_value'),
+          );
+        }
+      }
+
+
       break;
+
     case 'edoweb_upload_widget':
       $widget = $element;
       $widget['#delta'] = $delta;
@@ -285,75 +550,12 @@ function edoweb_field_field_widget_form(&$form, &$form_state, $field, $instance,
   return $element;
 }
 
-function _edoweb_field_ld_reference_validate($element, &$form_state, $form) {
-  // Because field values can have been removed by javascript,
-  // form_state has to be updated accordingly.
-  if (isset($form_state['input'][$element['#field_name']][LANGUAGE_NONE][$element['#delta']]['value'])) {
-    $input = $form_state['input'][$element['#field_name']][LANGUAGE_NONE][$element['#delta']]['value'];
-    form_set_value($element, $input, $form_state);
-  }
-}
-
-function _edoweb_field_ld_reference_get_label($field, $resource_uri) {
-  $cached_label = _edoweb_field_ld_reference_get_cached_label($resource_uri);
-  if (!$cached_label) {
-    $label = _edoweb_field_ld_reference_fetch_label(
-      $field, $resource_uri
-    );
-    _edoweb_field_ld_reference_set_cached_label($resource_uri, $label);
-  } else {
-    $label = $cached_label;
-  }
-  return $label;
-}
-
-function _edoweb_field_ld_reference_fetch_label($field, $resource_uri) {
-  $api = new LinkedDataClient();
-  $rdf_model = $api->getRDF($resource_uri);
-  $rdf_subject = new LibRDF_URINode($resource_uri);
-  LibRDF_LiteralNode::setPlainOutput(true);
-  $rdf_properties = $field['settings']['label_properties'];
-  $label_properties = array();
-  foreach ($rdf_properties as $rdf_property_uri) {
-    $rdf_property = new LibRDF_URINode($rdf_property_uri);
-    try {
-      // Fix escaped unicode characters such as \u00E4
-      $label_properties[] = json_decode(
-        '"'.$rdf_model->getTarget($rdf_subject, $rdf_property).'"'
-      );
-    } catch (LibRDF_LookupError $e) {
-      // Property could not be loaded, ignore
-    }
-  }
-  if (!empty($label_properties)) {
-    $resource_label = implode(', ', $label_properties);
-  } else {
-    $resource_label = "Label for $resource_uri";
-  }
-  return "$resource_label";
-}
-
-function _edoweb_field_ld_reference_get_cached_label($resource_uri) {
-  $resource_uri_md5 = md5($resource_uri);
-  return db_query(
-    'SELECT label FROM {edoweb_ld_reference_label_cache}
-     WHERE resource_uri_md5 = :resource_uri_md5',
-    array(':resource_uri_md5' => $resource_uri_md5)
-  )->fetchField();
-}
-
-function _edoweb_field_ld_reference_set_cached_label($resource_uri, $label) {
-  $resource_uri_md5 = md5($resource_uri);
-  $data = array(
-    'resource_uri_md5' => $resource_uri_md5,
-    'label' => $label,
-    'lang' => '',
-    'updated' => time(),
-  );
-  return db_merge('edoweb_ld_reference_label_cache')
-    ->key(array('resource_uri_md5' => $resource_uri_md5, 'lang' => ''))
-    ->fields($data)
-    ->execute();
+function edoweb_autocomplete_widget_update_value($form, &$form_state) {
+  unset($form['edoweb_autocomplete_widget']['search']['#value']);
+  unset($form_state['input']['edoweb_autocomplete_widget']);
+  unset($form_state['edoweb_autocomplete_widget']);
+  unset($form_state['complete form']['edoweb_autocomplete_widget']);
+  $form_state['rebuild'] = TRUE;
 }
 
 /**

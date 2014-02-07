@@ -30,11 +30,10 @@ class EdowebAPIClientLocal implements EdowebAPIClientInterface {
    *   The drupal entity to load data into
    */
   public function load($entity) {
-    $rdf_subject = _edoweb_storage_entity_get_uri($entity);
     $id = _edoweb_storage_entity_get_id($entity);
     $rdf_data = file_get_contents("/tmp/{$id}.ttl");
     $rdf_parser = new LibRDF_Parser('turtle');
-    _edoweb_storage_entity_deserialize_rdf($entity, $rdf_subject, $rdf_data, $rdf_parser);
+    _edoweb_storage_entity_deserialize_rdf($entity, $rdf_data, $rdf_parser);
     return TRUE;
   }
 
