@@ -178,7 +178,11 @@
           url += '?namespace=template';
         }
         var subject = topic.o;
-        var post_data = rdf.databank.dump({format:'application/rdf+xml', serialize: true});
+        var post_data = rdf.databank.dump({
+          format:'application/rdf+xml',
+          serialize: true,
+          namespaces: Drupal.settings.edoweb.namespaces
+        });
         $.post(url, post_data, function(data, textStatus, jqXHR) {
           var resource_uri = jqXHR.getResponseHeader('X-Edoweb-Entity');
           button.trigger('insert', resource_uri);

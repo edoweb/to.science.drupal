@@ -58,7 +58,7 @@ function edoweb_init() {
     }
     $settings = array(
       'fields' => $instances,
-      'namespaces' => edoweb_rdf_namespaces(),
+      'namespaces' => rdf_get_namespaces(),
       'primary_bundles' => array(
         'monograph', 'journal', 'volume', 'issue', 'article'
       ),
