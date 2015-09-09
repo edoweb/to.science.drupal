@@ -1879,21 +1879,25 @@ function edoweb_basic_status($entity) {
     '#title' => t('Interfaces'),
   );
 
+  $urnStatus = @$status['urnStatus'] == 200 ? t('gemeldet') : t('nicht gemeldet');
+
   $content['interfaces']['_urnStatus'] = array(
     '#prefix' => '<div class="field field-label-above"><div class="field-label">'
                   . t('URN Status')
                   . ':</div><div class="field-items"><div class="field-item even">',
     '#suffix' => '</div></div></div>',
-    '#markup' => '<a href="' . @$status['links']['urn'] . '"target="_blank">' . @$status['urnStatus'] . '</a>',
+    '#markup' => '<a href="' . @$status['links']['urn'] . '"target="_blank">' . $urnStatus . '</a>',
     '#weight' => 999,
   );
+
+  $oaiStatus = @$status['oaiStatus'] == 200 ? t('registriert') : t('nicht registriert');
 
   $content['interfaces']['_oaiStatus'] = array(
     '#prefix' => '<div class="field field-label-above"><div class="field-label">'
                   . t('OAI Status')
                   . ':</div><div class="field-items"><div class="field-item even">',
     '#suffix' => '</div></div></div>',
-    '#markup' => '<a href="' . @$status['links']['oai'] . '"target="_blank">' .  @$status['oaiStatus'] . '</a>',
+    '#markup' => '<a href="' . @$status['links']['oai'] . '"target="_blank">' . $oaiStatus . '</a>',
     '#weight' => 999,
   );
 
