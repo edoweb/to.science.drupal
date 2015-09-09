@@ -713,11 +713,13 @@ function edoweb_basic_search_entities_form($form, &$form_state, $advanced, $sear
       '#title' => t('Volltexte'),
       '#default_value' => isset($query['fulltext']),
     );
-    $form['query'][$search_count]['childlevel'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('Kindobjekte'),
-      '#default_value' => isset($query['childlevel']),
-    );
+    if (!user_is_anonymous()) {
+      $form['query'][$search_count]['childlevel'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Kindobjekte'),
+        '#default_value' => isset($query['childlevel']),
+      );
+    }
   }
 
   $form['query'][$search_count]['submit'] = array(
