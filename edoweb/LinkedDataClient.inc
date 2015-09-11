@@ -96,6 +96,12 @@ class LinkedDataClient {
       return false;
     }
 
+    if (function_exists ('normalizer_normalize')) {
+      $rdf_data = normalizer_normalize($rdf_data);
+    } else {
+      console_log('Normalizer missing, please install PECL intl > 1.0.0');
+    }
+
     try {
       $rdf_model->loadStatementsFromString($rdf_parser, $rdf_data);
     } catch (LibRDF_Error $e) {

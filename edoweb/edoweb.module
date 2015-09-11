@@ -1885,7 +1885,7 @@ function edoweb_basic_status($entity) {
 
   $content['interfaces']['_urnStatus'] = array(
     '#prefix' => '<div class="field field-label-above"><div class="field-label">'
-                  . t('URN Status')
+                  . t('URN')
                   . ':</div><div class="field-items"><div class="field-item even">',
     '#suffix' => '</div></div></div>',
     '#markup' => '<a href="' . @$status['links']['urn'] . '"target="_blank">' . $urnStatus . '</a>',
@@ -1896,7 +1896,7 @@ function edoweb_basic_status($entity) {
 
   $content['interfaces']['_oaiStatus'] = array(
     '#prefix' => '<div class="field field-label-above"><div class="field-label">'
-                  . t('OAI Status')
+                  . t('Katalog')
                   . ':</div><div class="field-items"><div class="field-item even">',
     '#suffix' => '</div></div></div>',
     '#markup' => '<a href="' . @$status['links']['oai'] . '"target="_blank">' . $oaiStatus . '</a>',
