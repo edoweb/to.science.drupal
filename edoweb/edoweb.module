@@ -1881,7 +1881,7 @@ function edoweb_basic_status($entity) {
     '#title' => t('Interfaces'),
   );
 
-  $urnStatus = @$status['urnStatus'] == 200 ? t('gemeldet') : t('nicht gemeldet');
+  $urnStatus = @$status['urnStatus'] == 200 ? t('registriert') : t('nicht registriert');
 
   $content['interfaces']['_urnStatus'] = array(
     '#prefix' => '<div class="field field-label-above"><div class="field-label">'
@@ -1892,7 +1892,7 @@ function edoweb_basic_status($entity) {
     '#weight' => 999,
   );
 
-  $oaiStatus = @$status['oaiStatus'] == 200 ? t('registriert') : t('nicht registriert');
+  $oaiStatus = @$status['oaiStatus'] == 200 ? t('gemeldet') : t('nicht gemeldet');
 
   $content['interfaces']['_oaiStatus'] = array(
     '#prefix' => '<div class="field field-label-above"><div class="field-label">'
@@ -2351,6 +2351,7 @@ function edoweb_rdf_namespaces() {
     'nwbib-spatial' => 'http://purl.org/lobid/nwbib-spatial#',
     'radion' => 'http://www.w3.org/ns/radion#',
     'holding' => 'http://purl.org/ontology/holding#',
+    'rda' => 'http://rdaregistry.info/Elements/u/',
   );
 }
 
@@ -3794,5 +3795,20 @@ function edoweb_update_7156() {
   _update_edoweb_installed_instances($updated_instances);
   _update_rdf_mapping();
   entity_info_cache_clear();
+}
+
+/**
+ * Add thesis information field.
+ */
+function edoweb_update_7158() {
+
+  $added_fields = array('field_edoweb_thesis_information');
+  $added_instances = array(
+    'monograph' => array('field_edoweb_thesis_information'),
+  );
+  _update_edoweb_installed_fields($added_fields);
+  _update_edoweb_installed_instances($added_instances);
+  _update_rdf_mapping();
+
 }
 

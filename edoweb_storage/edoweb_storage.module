@@ -726,9 +726,6 @@ function _entity_set_value($wrapper, $field_info, $value, $rdf_model) {
     }
   } catch (EntityMetadataWrapperException $e) {
     console_log($e->getMessage());
-    console_log("$rdf_subject");
-    console_log("$rdf_predicate");
-    console_log("$value");
   }
 }
 
