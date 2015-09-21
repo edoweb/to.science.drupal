@@ -13,6 +13,7 @@
    version="1.0"
    width="128"
    height="128"
+	viewBox="0 0 100 100"
    viewBox="0 0 128 128"
    id="Layer_1"
    xml:space="preserve"
@@ -123,6 +124,7 @@
 <rect
    width="128"
    height="128"
+	viewBox="0 0 100 100"
    x="0"
    y="0"
    id="_x3C_Sezione_x3E_"

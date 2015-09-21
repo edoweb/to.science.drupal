@@ -20,6 +20,7 @@
    sodipodi:version="0.32"
    id="svg2606"
    height="128"
+	viewBox="0 0 100 100"
    width="128">
   <sodipodi:namedview
      id="base"
@@ -1406,6 +1407,7 @@
        id="rect3050"
        width="128"
        height="128"
+	viewBox="0 0 100 100"
        x="0"
        y="0" />
     <text
