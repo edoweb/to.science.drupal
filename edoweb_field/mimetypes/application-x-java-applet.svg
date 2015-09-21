@@ -12,6 +12,7 @@
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    width="128"
    height="128"
+	viewBox="0 0 100 100"
    id="svg2606"
    sodipodi:version="0.32"
    inkscape:version="0.48.0 r9654"
@@ -16851,6 +16852,7 @@
        id="rect3050"
        width="128"
        height="128"
+	viewBox="0 0 100 100"
        x="0"
        y="0" />
     <path
