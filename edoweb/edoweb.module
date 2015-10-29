@@ -2699,6 +2699,10 @@ function _edoweb_link_lastmodified($entity) {
   }
 }
 
+function _edoweb_upload_progress($resource, $download_size, $downloaded, $upload_size, $uploaded) {
+  console_log("Downloaded $downloaded of $download_size, uploaded $uploaded of $upload_size.");
+}
+
 function _edoweb_http_request($request_url, $http_options) {
 
   // Add credentials if loading from API

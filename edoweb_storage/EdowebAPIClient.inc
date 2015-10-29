@@ -702,7 +702,6 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
     $postfields = $this->_curl_custom_postfields($params, $files);
 
     curl_setopt_array($request, $postfields);
-
     $response = curl_exec($request);
     $info = curl_getinfo($request);
     $curl_error = curl_errno($request);
@@ -718,6 +717,7 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
       );
       return FALSE;
     } else if ($curl_error || 200 != $response_code) {
+      console_log(curl_error($request));
       watchdog('edoweb_storage', 'Error uploading file @file to @api.',
         array(
           '@file' => $file_path,
@@ -793,6 +793,8 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
 
     // set options
     return array(
+      CURLOPT_NOPROGRESS => false,
+      CURLOPT_PROGRESSFUNCTION => '_edoweb_upload_progress',
       CURLOPT_POST => TRUE,
       CURLOPT_POSTFIELDS => implode("\r\n", $body),
       CURLOPT_RETURNTRANSFER => TRUE,
