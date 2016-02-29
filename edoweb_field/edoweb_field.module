@@ -134,7 +134,7 @@ function edoweb_options_list($field_name) {
 }
 
 function edoweb_field_preprocess_field(&$variables) {
-  if ($variables['element']['#field_name'] == 'field_edoweb_parallel') {
+  if (isset($variables['label'])) {
     $variables['label'] = t($variables['label']);
   }
   if ($variables['element']['#field_type'] == 'list_text') {

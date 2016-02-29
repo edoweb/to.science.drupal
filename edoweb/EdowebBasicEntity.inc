@@ -72,15 +72,7 @@ class EdowebBasicEntity extends Entity {
       case 'webpage':
       case 'version':
       case 'part':
-        if ('compact' == $view_mode) {
-          foreach (variable_get('compact_view_title_fields') as $field => $enabled) {
-            if ($enabled) {
-              $label_fields[] = $field;
-            }
-          }
-        } else {
-          $label_fields[] = 'field_edoweb_title';
-        }
+        $label_fields[] = 'field_edoweb_title';
         break;
       case 'person':
       case 'corporate_body':
@@ -98,9 +90,25 @@ class EdowebBasicEntity extends Entity {
         break;
     }
 
+    return (empty($this->stringifyFields($label_fields) && isset($this->remote_id))
+      ? _edoweb_expand_curie($this->remote_id)
+      : implode(' / ', $this->stringifyFields($label_fields)));
+  }
+
+  public function subLabel($view_mode = 'compact') {
+    $label_fields = array();
+    foreach (variable_get('compact_view_title_fields') as $field => $enabled) {
+      if ($enabled) {
+        $label_fields[] = $field;
+      }
+    }
+    return implode(' . ', $this->stringifyFields($label_fields));
+  }
+
+  private function stringifyFields($field_names) {
     $wrapper = entity_metadata_wrapper('edoweb_basic', $this);
     $title_values = array();
-    foreach ($label_fields as $label_field) {
+    foreach ($field_names as $label_field) {
       try {
         $title_value = $wrapper->$label_field->value();
         $values = array();
@@ -115,15 +123,13 @@ class EdowebBasicEntity extends Entity {
         } else {
           $values[] = $title_value;
         }
-        if ($title_value) $title_values[] = implode(', ', $values);
+        if ($title_value) $title_values[] = implode(' | ', $values);
       } catch (EntityMetadataWrapperException $e) {
         // Field not available, ignore
       }
     }
-
-    return (empty($title_values) && isset($this->remote_id))
-      ? _edoweb_expand_curie($this->remote_id)
-      : implode(' / ', $title_values);
+    return $title_values;
   }
+
 
 }

@@ -495,7 +495,7 @@ msgstr ""
 
 #: (duplicate) edoweb/edoweb.install:1886
 msgid "[Bearb.]"
-msgstr ""
+msgstr "Beteiligte"
 
 #: (duplicate) edoweb/edoweb.install:1889
 msgid "[Hrsg.]"
@@ -939,6 +939,9 @@ msgstr "Publikationstyp"
 
 msgid "institution"
 msgstr "Institution"
+
+msgid "Redakteur"
+msgstr "Redaktion"
 
 #~ msgid "The entity %id has been reloaded."
 #~ msgstr "Das Objekt %id wurde neu geladen."

@@ -587,6 +587,7 @@ function edoweb_repository_configuration_form() {
       'field_edoweb_title' => t('Titel'),
       'field_edoweb_creator' => t('Autor'),
       'field_edoweb_contributor' => t('Bearbeiter'),
+      'field_edoweb_issued' => t('Erschienen'),
     ),
     '#default_value' => variable_get('compact_view_title_fields', array('field_edoweb_title')),
   );
@@ -1573,7 +1574,11 @@ function edoweb_basic_view($entity, $view_mode = 'default') {
       '#suffix' => "<span about=\"$page_url\" rel=\"foaf:primaryTopic\" $attr_rdf_resource /></div>",
     );
   } else {
-    $link = _get_edoweb_url($entity->label($view_mode), $entity);
+    $label = $entity->label($view_mode);
+    if ($entity->subLabel()) {
+      $label .= ' / ' . $entity->subLabel();
+    }
+    $link = _get_edoweb_url($label, $entity);
     $entity->content = array(
       '#prefix' => "<div class=\"edoweb entity $view_mode\" $attr_bundle $attr_rdf_resource $attr_rdf_typeof>"
                  . '<h1>' . $link . '</h1>',
@@ -2727,6 +2732,12 @@ function edoweb_preprocess_html(&$vars) {
   $site_name = variable_get('site_name');
   if ($site_name == trim(array_pop($title_parts)) && $title_parts) {
     $vars['head_title'] = "{$site_name}: " . implode('|', $title_parts);
+  }
+}
+
+function edoweb_preprocess_page(&$vars) {
+  if ($entity = menu_get_object(EDOWEB_ENTITY_TYPE)) {
+    $vars['title_suffix']['edoweb']['#markup'] = "<h2>" . $entity->subLabel() . "</h2>";
   }
 }
 
