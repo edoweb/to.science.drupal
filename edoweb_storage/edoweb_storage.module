@@ -728,13 +728,20 @@ function _entity_set_value($wrapper, $field_info, $value, $rdf_model) {
         $wrapper->{$field_name}[] = (string) $value;
       }
     } else {
-      // Check if label is available
+      // Check if SKOS label is available
       try {
         $label = _edoweb_unescape_utf8($rdf_model->getTarget($value,
             new LibRDF_URINode(_edoweb_expand_curie('skos:prefLabel'))
         )->getValue());
       } catch (LibRDF_LookupError $e) {
-        $label = '';
+        // If not, check if GND label is available
+        try {
+          $label = _edoweb_unescape_utf8($rdf_model->getTarget($value,
+              new LibRDF_URINode(_edoweb_expand_curie('gnd:preferredName'))
+          )->getValue());
+        } catch (LibRDF_LookupError $e) {
+          $label = $value;
+        }
       }
       if ($wrapper->{$field_name} instanceOf EntityValueWrapper) {
         $wrapper->{$field_name} = $value->getValue();
