@@ -82,6 +82,16 @@ function edoweb_install() {
 function _edoweb_installed_fields() {
   $t = get_t();
   return array(
+  	  'field_edoweb_ht_with_link' => array(
+  	  'cardinality' => FIELD_CARDINALITY_UNLIMITED,
+      'type'        => 'edoweb_ld_reference',
+      'settings'    => array(
+        'metadata_type' => 'descriptive',
+        'predicates' => array('regal:catalogLink'),
+      	'parameter' => 'name',
+        'endpoint' => 'resource',
+      ),
+    ),
     'field_edoweb_identifier_ht' => array(
       'cardinality' => 1,
       'type'        => 'text',
@@ -2154,6 +2164,9 @@ function _edoweb_installed_instances() {
 function _edoweb_field_instance_defaults($field_name) {
   $t = get_t();
   $defaults = array(
+  	'field_edoweb_ht_with_link' => array(
+  				'label' => $t('Verbund-Id'),
+  	),
     'field_edoweb_identifier_ht' => array(
       'label' => $t('HT Nummer'),
     ),

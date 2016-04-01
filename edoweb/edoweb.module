@@ -4396,3 +4396,45 @@ function edoweb_update_7168() {
 
 }
 
+/**
+ * update field_edoweb_ht_with_link aka regal:catalogLink
+ * 
+ */
+function edoweb_update_7171() {
+
+	$updated_fields = array(
+			'field_edoweb_ht_with_link',
+	);
+
+	$updated_instances = array(
+			'monograph' => array(
+					'field_edoweb_ht_with_link',
+			),
+			'journal' => array(
+					'field_edoweb_ht_with_link',
+			),
+			'volume' => array(
+					'field_edoweb_ht_with_link',
+			),
+			'issue' => array(
+					'field_edoweb_ht_with_link',
+			),
+			'article' => array(
+					'field_edoweb_ht_with_link',
+			),
+			'webpage' => array(
+					'field_edoweb_ht_with_link',
+			),
+			'collection' => array(
+					'field_edoweb_ht_with_link',
+			),
+			'generic' => array(
+					'field_edoweb_ht_with_link',
+			),
+	);
+
+	_update_edoweb_installed_fields($updated_fields);
+	_update_edoweb_installed_instances($updated_instances);
+	_update_rdf_mapping();
+
+}
