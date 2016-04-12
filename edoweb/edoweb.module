@@ -978,14 +978,13 @@ function _edoweb_entity_table_headers($init_sort = null) {
       ),
       'format' => '_full_title',
     ),
-    'field_edoweb_identifier_ht' => array(
+    'field_edoweb_parallel' => array(
       'data' => t('ID'),
       'type' => 'field',
       'specifier' => array(
-        'field' => 'field_edoweb_identifier_ht',
+        'field' => 'field_edoweb_parallel',
         'column' => 'value',
       ),
-      'format' => '_get_external_url',
     ),
     '_edoweb_compact_view' => array(
       'data' => t('Kurzansicht'),
