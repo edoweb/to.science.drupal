@@ -381,7 +381,16 @@ class EdowebAPIClient implements EdowebAPIClientInterface {
     return $this->_http_post($http_url);
     
   }
-
+  public function getView($entity,$style) {
+    	      $http_url = sprintf(
+  		  	      		'%s/resource/%s/all?design=%s',
+  		  	      		$this->__edoweb_api_host,
+  		  	      		$entity->remote_id,
+  			 	      		$style
+  			 	      		);
+  	 	      $http_response = $this->_http_get($http_url, 'text/html');
+  	 	      return $http_response->data;
+  }
   protected function _query_lobid(EntityFieldQuery $efq, $page = 0) {
     $lobid_host = variable_get('edoweb_lobid_host');
     $term = str_replace(

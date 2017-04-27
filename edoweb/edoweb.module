@@ -860,6 +860,7 @@ function edoweb_basic_search_entities_form($form, &$form_state, $advanced, $sear
       'monograph' => t('Monograph'),
       'journal' => t('Journal'),
       'webpage' => t('Webpage'),
+      'article'=>t('Artikel'),	
     );
     $form['query'][$search_count]['type'] = array(
       '#type' => 'radios',
@@ -967,7 +968,7 @@ function edoweb_basic_search_entities(
 
   if (! (@$childlevel = $query['childlevel']) && ! (@$fulltext = $query['fulltext']) ) {
     //FIXME: this overwrites person etc bundles!!!
-    $efq->entityCondition('bundle', array('monograph', 'journal', 'webpage','proceeding','researchData'));
+    $efq->entityCondition('bundle', array('monograph', 'journal', 'webpage','proceeding','researchData','article'));
   }
 
   if (@$fulltext = $query['fulltext']) {
@@ -1613,34 +1614,65 @@ function edoweb_basic_view($entity, $view_mode = 'default') {
 
   // Start setting up the content.
   if (!('compact' == $view_mode)) {
-    $entity->content = array(
-      '#view_mode' => $view_mode,
-      '#prefix' => "<div class=\"edoweb entity $view_mode\" $attr_bundle $attr_rdf_resource $attr_rdf_typeof>",
-      '#suffix' => "<span about=\"$page_url\" rel=\"foaf:primaryTopic\" $attr_rdf_resource /></div>",
-    );
-  } 
-  else {
-    $entity->content = array(
-      '#prefix' => "<div class=\"edoweb entity $view_mode\" $attr_bundle $attr_rdf_resource $attr_rdf_typeof>"
-                 . '<div class="compact-header">' . _full_title($entity->label(), $entity) . '</div>',
-      '#suffix' => "</div>",
-    );
+  	$entity->content = array(
+  			'#view_mode' => $view_mode,
+  			'#prefix' => "<div class=\"edoweb entity $view_mode\" $attr_bundle $attr_rdf_resource $attr_rdf_typeof>",
+  			'#suffix' => "<span about=\"$page_url\" rel=\"foaf:primaryTopic\" $attr_rdf_resource /></div>",
+  	);
+  
+  	 
+  	if (isset($entity->remote_id)) {
+  		
+  		$api = new EdowebAPIClient();
+  		$htmlString=$api->getView($entity,"frl");
+  		$userInfo="";$viewSource="";$mabSource="";
+  		if (user_access('edit any edoweb_basic entity')) {
+  
+  			$userInfo = '<small>Letzte Änderung ';
+  			$userInfo .= isset($entity->updated) ? _edoweb_format_date($entity->updated) : '';
+  			$userInfo .= ' durch ' . _edoweb_user_name($entity->mid) . ', erstellt: ';
+  			$userInfo .= isset($entity->created) ? _edoweb_format_date($entity->created) : '';
+  			$userInfo .= ' durch ' .  _edoweb_user_name($entity->uid) . '</small>';
+  	   
+  		}
+  
+  		$viewSource = '<p/><small>' . l(
+  				'View source',
+  				_edoweb_expand_curie($entity->remote_id),
+  				array('attributes' => array(
+  						'target'=>'_blank',
+  						'class' => array('entity-id'),
+  				))
+  				) . '</small>';
+  				$mabSource="";
+  				if (! empty($origin)) {
+  					$mabSource	='<p/><small>' . l(
+  							'View MAB source',
+  							$origin[0]['value'] . '?format=source',
+  							array('attributes' => array(
+  									'target'=>'_blank',
+  									'class' => array('entity-id'),
+  							))
+  							) . '</small>';
+  				}
+  				$entity->content = array(
+  						'#view_mode' => $view_mode,
+  						'#prefix' => "<div class=\"edoweb entity $view_mode\" $attr_bundle $attr_rdf_resource $attr_rdf_typeof>",
+  						'#markup' =>  $htmlString . $userInfo . $viewSource . $mabSource,
+  						'#suffix' => "<span about=\"$page_url\" rel=\"foaf:primaryTopic\" $attr_rdf_resource /></div>",
+  				);
+  	}
+  	 
+  
   }
-
+  else {
+  	$entity->content = array(
+  			'#prefix' => "<div class=\"edoweb entity $view_mode\" $attr_bundle $attr_rdf_resource $attr_rdf_typeof>"
+  			. '<div class="compact-header">' . _full_title($entity->label(), $entity) . '</div>',
+  			'#suffix' => "</div>",
+  	);
+  }
   if (isset($entity->remote_id)) {
-    // Build fields content - this is where the Field API really comes in to play.
-    // The task has very little code here because it all gets taken care of by
-    // field module.
-    // field_attach_prepare_view() lets the fields load any data they need
-    // before viewing.
-    field_attach_prepare_view($entity_type, array($entity->remote_id => $entity), $view_mode);
-
-    // We call entity_prepare_view() so it can invoke hook_entity_prepare_view()
-    // for us.
-    entity_prepare_view($entity_type, array($entity->remote_id => $entity));
-    // Now field_attach_view() generates the content for the fields.
-    $entity->content += field_attach_view($entity_type, $entity, $view_mode);
-
     // OK, Field API done, now we can set up some of our own data.
     if ('default' == $view_mode) {
 
@@ -1935,6 +1967,7 @@ function edoweb_field_extra_fields() {
   $extra_fields['edoweb_basic']['volume']['display'] = $display_elements;
   $extra_fields['edoweb_basic']['proceeding']['display'] = $display_elements;
   $extra_fields['edoweb_basic']['researchData']['display'] = $display_elements;
+  $extra_fields['edoweb_basic']['article']['display'] = $display_elements;
 
   return $extra_fields;
 }
@@ -2873,7 +2906,7 @@ function edoweb_block_view($delta = '') {
         );
         $top_level_parent = _edoweb_find_top_level_parent($entity);
         if (_edoweb_is_editable_entity($top_level_parent) &&
-            in_array($top_level_parent->bundle_type, array('monograph', 'journal','proceeding','researchData'))) {
+            in_array($top_level_parent->bundle_type, array('monograph', 'journal','proceeding','researchData','article'))) {
           $api = new EdowebAPIClient();
           $subtree = _edoweb_build_tree($api->getTree($top_level_parent));
           $block['content'] = theme_item_list(array(

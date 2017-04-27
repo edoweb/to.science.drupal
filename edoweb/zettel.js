@@ -26,10 +26,11 @@
 			} else {
 				var zettel_form = '<div id="successBox" class="success"></div>'
 						+ '<div id="warningBox" class="warning"></div>'
-						+ '<iframe name="'+Date.now()+'" src="'
+						+ '<iframe class="'+bundle+'"name="'+Date.now()+'" src="'
 						+ Drupal.settings.edoweb.zettelServiceUrl
 						+ '/forms'
-						+ '?id=katalog:data'
+						+ '?id=katalog:'
+						+ bundle
 						+ '&format=xml'
 						+ '&documentId=_:foo'
 						+ '&topicId='
@@ -44,15 +45,16 @@
 		}
 	}
 	function loadZettel(bundle, entity, context) {
+		console.log(bundle);
 		var rid = $(entity).attr("resource");
 		var url = Drupal.settings.edoweb.zettelServiceUrl + '/forms'
-				+ '?id=katalog:data' + '&format=xml' + '&documentId=' + rid
+				+ '?id=katalog:'+bundle + '&format=xml' + '&documentId=' + rid
 				+ '&topicId=' + Drupal.settings.baseUrl + '/resource/' + rid
 				+ '/edit';
 		var rdfBox = '<div id="rdfBox" class="data" style="display:none;"></div>';
 		var zettel_form = '<div id="successBox" class="success"></div>'
 				+ '<div id="warningBox" class="warning"></div>'
-				+ '<iframe name="'+Date.now()+'" src="' + url + '"'
+				+ '<iframe class="'+bundle+'" name="'+Date.now()+'" src="' + url + '"'
 		                + ' width="800px" style="border: none;" id="iFrame">'
 				+ '<p>iframes are not supported by your browser.</p></iframe>';
 
@@ -68,7 +70,8 @@
 		$.blockUI(Drupal.edoweb.blockUIMessage);
 		$('button.edoweb.edit.action').hide();
 		var url = Drupal.settings.basePath + Drupal.settings.actionPath;
-		var bundle = 'researchData';
+		
+		var bundle = postdata.formType;
 		$
 				.ajax({
 					type : 'POST',
@@ -90,7 +93,8 @@
 								if (bundle == 'monograph'
 										|| bundle == 'journal'
 										|| bundle == 'proceeding'
-										|| bundle == 'researchData') {
+										|| bundle == 'researchData'
+										|| bundle == 'article') {
 									window.location = href;
 								} else {
 									localStorage.setItem('cut_entity',
@@ -129,13 +133,14 @@
 	function handleMessage(e) {
 		if (e.data.action == 'establishConnection') {
 			var topicId = e.data.topicId;
+			var bundle = e.data.formType;
 			var documentId = e.data.documentId;
 			var iframe = document.getElementById("iFrame");
 			var target = iframe.contentWindow || iframe;
 			var rdf = $('#rdfBox').text();
 			if (typeof rdf != "undefined") {
 				target.postMessage({
-					'queryParam' : 'id=katalog:data&format=xml&topicId='
+					'queryParam' : 'id='+bundle+'&format=xml&topicId='
 							+ topicId + '&documentId=' + documentId,
 					'message' : rdf,
 					'action'  : 'postDataToZettel'

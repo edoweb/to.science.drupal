@@ -543,7 +543,7 @@ function _edoweb_storage_entity_serialize_rdf(
 
   $wrapper = entity_metadata_wrapper(EDOWEB_ENTITY_TYPE, $entity);
 
-  if(!empty($entity->postData) && $entity->type == 'researchData'){
+  if(!empty($entity->postData) && ($entity->type == 'researchData' ||$entity->type == 'article' || $entity->type == 'chapter'||$entity->type=='proceeding')){
 	$rdfxml_parser = new LibRDF_Parser('rdfxml');
         $rdf_model = new LibRDF_Model(new LibRDF_Storage());
         $rdf_serializer = new LibRDF_Serializer('ntriples');
