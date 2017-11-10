@@ -2201,7 +2201,9 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
         '9',
       ),
       '#default_value' => "keine",
-      '#weight' => 20,
+      '#default_value' => @$conf['deepness'] == null ? 'keine' : @$conf['deepness'] == '0' ? 'keine' : @$conf['deepness'],
+      '#weight' => 90,
+      '#required' => FALSE,
     );
   }
   
