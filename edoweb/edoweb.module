@@ -2179,7 +2179,7 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
     if( sizeof(@$conf['urlsExcluded']) > 0 ) {
       $form['urlsExcluded'][sprintf('urlExcluded%02d', sizeof(@$conf['urlsExcluded']))] = array(
         '#type' => 'textfield',
-        '#title' => t('Weitere Bereich ausschließen'),
+        '#title' => t('Weitere Bereiche ausschließen'),
         '#default_value' => '',
         '#required' => FALSE,
       );
@@ -2200,8 +2200,7 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
       '8',
       '9',
     ),
-    '#default_value' => @$conf['deepness'] == 0 ? 'keine' : @$conf['deepness'],
-    '#default_value' => "0",
+    '#default_value' => "keine",
     '#weight' => 20,
   );
 
