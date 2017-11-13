@@ -642,10 +642,10 @@ function edoweb_repository_configuration_form() {
       'rdftype.@id' => t('Typ'),
       'medium.@id' => t('Medium'),
       'issued' => t('Erscheinungsjahr'),
-      'creator.@id' => t('Autor'),
+      'contribution.agent.prefLabel' => t('Beteiligung'),
       'institution.@id' => t('Institution'),
     ),
-    '#default_value' => variable_get('available_facets', array('creator.@id')),
+    '#default_value' => variable_get('available_facets', array('contribution.agent.prefLabel')),
   );
   
   $entity_table_headers = array();
@@ -749,7 +749,6 @@ function _edoweb_lastmodified($remote_id) {
 }
 
 function _edoweb_search($bundle_name = null, $field_name = null) {
-
   $query = new EntityFieldQuery();
   $query->entityCondition('entity_type', 'edoweb_basic');
   $endpoint = null;
@@ -895,7 +894,6 @@ function edoweb_basic_search_entities(
   $list_noterm = TRUE, $add_links = FALSE, $sortable = TRUE,
   $view_mode = 'default', $fulltext_option = false
 ) {
-
   static $search_count = 0;
   if (array_key_exists('query', $_GET)
       && !empty($_GET['query'])
@@ -1382,7 +1380,7 @@ function edoweb_basic_list_entities(EntityFieldQuery $efq, $operations = array()
       );
     }
     foreach ($active_facets as $jsonld_property => $facet) {
-      $is_ref = in_array($jsonld_property, array('creator', 'subject'));
+      $is_ref = in_array($jsonld_property, array('contribution', 'subject'));
       $is_user = ('createdBy' == $jsonld_property
           || 'lastModifiedBy' == $jsonld_property);
       foreach ($facet as $key => $value) {
@@ -1425,7 +1423,7 @@ function edoweb_basic_list_entities(EntityFieldQuery $efq, $operations = array()
         ),
         '#title' => l(_edoweb_map_string($jsonld_property), 'browse/' . $jsonld_property),
       );
-      $is_ref = in_array($jsonld_property, array('creator', 'subject', 'institution', 'medium', 'rdftype'));
+      $is_ref = in_array($jsonld_property, array('contribution', 'subject', 'institution', 'medium', 'rdftype'));
       $is_user = ('createdBy' == $jsonld_property
           || 'lastModifiedBy' == $jsonld_property);
       foreach ($facet->terms as $term) {
@@ -1509,6 +1507,8 @@ function _edoweb_map_string($string) {
   switch ($string) {
     case 'creator':
       return t('creator');
+    case 'contribution':
+        return t('contribution');
     case 'subject':
       return t('subject');
     case 'rpbSubject':
@@ -1842,7 +1842,7 @@ function edoweb_basic_edit($entity, $view_mode = 'edit') {
   $api = new EdowebAPIClient();
   drupal_add_js(array('baseUrl' => $base_url), 'setting');
   drupal_add_js(array('rdf' => ""), 'setting');
-  $rdf= $api->getMetadata($entity);
+ $rdf= $api->getMetadata($entity);
   drupal_add_js(array('rdf' => $rdf), 'setting');
   drupal_add_js(array('actionPath' =>current_path()), 'setting');
   
@@ -2148,6 +2148,7 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
     '#default_value' => @$conf['crawlerSelection'] == null ? 'heritrix' : @$conf['crawlerSelection'],
     '#required' => FALSE,
     '#weight' => 60,
+
   );
   console_log('issetCrawlerSelection='.(@$conf['crawlerSelection']!==null));
   console_log('crawlerSelection='.@$conf['crawlerSelection']);
@@ -2208,19 +2209,21 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
     
   
   $form['limitCrawlSize'] = array(
-  	'#type' => 'fieldset',
-  	'#title' => t('Maximale Größe eines Crawls'),
+    '#type' => 'fieldset',
+    '#title' => t('Maximale Größe eines Crawls'),
+    '#attributes' => array('class' => array('container-inline')),
     '#weight' => 85,
   );
   $form['limitCrawlSize']['maxCrawlSize'] = array(
     '#type' => 'textfield',
     '#title' => t('Wert'),
-    '#default_value' => @$conf['maxCrawlSize'] == null ? '0' : @$conf['maxCrawlSize'] == '0' ? '0' : @$conf['maxCrawlSize']
+    '#default_value' => @$conf['maxCrawlSize'],
     '#required' => FALSE,
+    '#size' => 4,
   );
   $form['limitCrawlSize']['quotaUnitSelection'] = array(
     '#type' => 'select',
-    '#title' => t('Größeneinheit'),
+
     '#options' => array(
       'KB' => t('Kilobyte'),
       'MB' => t('Megabyte'),
@@ -2285,7 +2288,7 @@ function edoweb_basic_crawler_form_submit($form, &$form_state) {
       $i++;
       }
     $conf['deepness'] = $form_state['values']['deepness'];
-    $conf['maxCrawlSize'] = $form_state['values']['maxCrawSize'];
+    $conf['maxCrawlSize'] = $form_state['values']['maxCrawlSize'];
     $conf['quotaUnitSelection'] = $form_state['values']['quotaUnitSelection'];
     }
 
@@ -2668,7 +2671,7 @@ function edoweb_basic_browse($jsonld_property) {
     return drupal_not_found();
   }
 
-  $is_ref = in_array($jsonld_property, array('creator', 'subject', 'institution', 'rdftype', 'medium'));
+  $is_ref = in_array($jsonld_property, array('contribution', 'subject', 'institution', 'rdftype', 'medium'));
   $is_user = ('createdBy' == $jsonld_property
       || 'lastModifiedBy' == $jsonld_property);
   $items = array();
@@ -2719,7 +2722,7 @@ function edoweb_restricted_browse($inst_name, $jsonld_property = 'institution') 
     return drupal_not_found();
   }
 
-  $is_ref = in_array($jsonld_property, array('creator', 'subject', 'institution', 'rdftype', 'medium'));
+  $is_ref = in_array($jsonld_property, array('contribution', 'subject', 'institution', 'rdftype', 'medium'));
   $is_user = ('createdBy' == $jsonld_property
       || 'lastModifiedBy' == $jsonld_property);
   $items = array();
@@ -2919,6 +2922,7 @@ function edoweb_rdf_namespaces() {
     'rdf' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
       'rda' => 'http://rdaregistry.info/Elements/u/',
       'rda-media' => 'http://rdaregistry.info/termList/RDAMediaType/',
+      'bibframe' => 'http://id.loc.gov/ontologies/bibframe/',
   );
 }
 
@@ -3085,11 +3089,11 @@ function edoweb_block_view($delta = '') {
       $query = new EntityFieldQuery();
       $query->entityCondition('bundle', array(
       'monograph', 'journal', 'volume', 'issue', 'file', 'webpage', 'version', 'part', 'proceeding', 'researchData')); 
-      $query->addMetaData('term', $entity->title);
+  //    $query->addMetaData('term', $entity->title);
       $active_facets = 'institution';
       $query->addTag('elasticsearch');
 
-      $block['content'] = edoweb_basic_list_entities($query, array(), FALSE, NULL, TRUE, 'default'); 
+   //   $block['content'] = edoweb_basic_list_entities($query, array(), FALSE, NULL, TRUE, 'default'); 
       if(variable_get('hide_facets')== 1) {
         $block['content']['filters'] = null; 
 
@@ -3751,7 +3755,7 @@ function edoweb_update_7179(){
 /**
  * Update all
  */
-function edoweb_update_7209(){
+function edoweb_update_7210(){
   _update_edoweb_installed_fields();
   _update_edoweb_installed_instances();
   _update_rdf_mapping();
