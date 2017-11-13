@@ -2207,16 +2207,18 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
     );
     
   
-  $form['maxCrawlSize'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Maximale Größe eines Crawls'),
-    '#default_value' => @$conf['maxCrawlSize'],
-    '#required' => FALSE,
+  $form['limitCrawlSize'] = array(
+  	'#type' => 'fieldset',
+  	'#title' => t('Maximale Größe eines Crawls'),
     '#weight' => 85,
   );
-  
-  
-  $form['quotaUnitSelection'] = array(
+  $form['limitCrawlSize']['maxCrawlSize'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Wert'),
+    '#default_value' => @$conf['maxCrawlSize'] == null ? '0' : @$conf['maxCrawlSize'] == '0' ? '0' : @$conf['maxCrawlSize']
+    '#required' => FALSE,
+  );
+  $form['limitCrawlSize']['quotaUnitSelection'] = array(
     '#type' => 'select',
     '#title' => t('Größeneinheit'),
     '#options' => array(
@@ -2224,10 +2226,8 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
       'MB' => t('Megabyte'),
       'GB' => t('Gigabyte'),
     ),
-    '#default_value' => @$conf['quotaUnitSelection'] == null ? 'MB' : @$conf['quotaUnitSelection'],
+    '#default_value' => @$conf['quotaUnitSelection'] == null ? 'Megabyte' : @$conf['quotaUnitSelection'],
     '#required' => FALSE,
-    '#weight' => 85,
-    '#size' => 10,
   );
   }
   
