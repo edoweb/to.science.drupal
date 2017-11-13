@@ -2189,7 +2189,7 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
       '#type' => 'select',
       '#title' => t('Max. Verzeichnistiefe'),
       '#options' => array(
-        'keine' => t('keine'),
+        '0' => t('keine'),
         '1',
         '2',
         '3',
@@ -2201,10 +2201,34 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
         '9',
       ),
       '#default_value' => "keine",
-      '#default_value' => @$conf['deepness'] == null ? 'keine' : @$conf['deepness'] == '0' ? 'keine' : @$conf['deepness'],
-      '#weight' => 90,
+      '#default_value' => @$conf['deepness'] == null ? '0' : @$conf['deepness'] == '0' ? '0' : @$conf['deepness'],
+      '#weight' => 80,
       '#required' => FALSE,
     );
+    
+  
+  $form['limitCrawlSize'] = array(
+  	'#type' => 'fieldset',
+  	'#title' => t('Maximale Größe eines Crawls'),
+    '#weight' => 85,
+  );
+  $form['limitCrawlSize']['maxCrawlSize'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Wert'),
+    '#default_value' => @$conf['maxCrawlSize'] == null ? '0' : @$conf['maxCrawlSize'] == '0' ? '0' : @$conf['maxCrawlSize']
+    '#required' => FALSE,
+  );
+  $form['limitCrawlSize']['quotaUnitSelection'] = array(
+    '#type' => 'select',
+    '#title' => t('Größeneinheit'),
+    '#options' => array(
+      'KB' => t('Kilobyte'),
+      'MB' => t('Megabyte'),
+      'GB' => t('Gigabyte'),
+    ),
+    '#default_value' => @$conf['quotaUnitSelection'] == null ? 'Megabyte' : @$conf['quotaUnitSelection'],
+    '#required' => FALSE,
+  );
   }
   
   $form['save'] = array(
@@ -2262,7 +2286,7 @@ function edoweb_basic_crawler_form_submit($form, &$form_state) {
       }
     $conf['deepness'] = $form_state['values']['deepness'];
     $conf['maxCrawlSize'] = $form_state['values']['maxCrawSize'];
-    $conf['quotaUnitSelecteion'] = $form_state['values']['quotaUnitSelection'];
+    $conf['quotaUnitSelection'] = $form_state['values']['quotaUnitSelection'];
     }
 
   $api->setCrawlerConfiguration($entity, $conf);
