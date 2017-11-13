@@ -2210,9 +2210,9 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
   $form['maxCrawlSize'] = array(
     '#type' => 'textfield',
     '#title' => t('Maximale Größe eines Crawls'),
-    '#default_value' => @$conf['maxCrawlSize'],
+    '#default_value' => @$conf['maxCrawlSize'] == null ? '0' : @$conf['maxCrawlSize'] == '0' ? '0' : @$conf['maxCrawlSize'],
     '#required' => FALSE,
-    '#weight' => 82,
+    '#weight' => 85,
   );
   
   
@@ -2224,9 +2224,10 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
       'MB' => t('Megabyte'),
       'GB' => t('Gigabyte'),
     ),
-    '#default_value' => @$conf['quotaUnitSelection'] == null ? 'MB' : @$conf['quotaUnitSelection'],
+    '#default_value' => @$conf['quotaUnitSelection'] == null ? 'GB' : @$conf['quotaUnitSelection'],
     '#required' => FALSE,
-    '#weight' => 87,
+    '#weight' => 85,
+    '#size' => 10;
   );
   }
   
@@ -2285,7 +2286,7 @@ function edoweb_basic_crawler_form_submit($form, &$form_state) {
       }
     $conf['deepness'] = $form_state['values']['deepness'];
     $conf['maxCrawlSize'] = $form_state['values']['maxCrawSize'];
-    $conf['quotaUnitSelecteion'] = $form_state['values']['quotaUnitSelection'];
+    $conf['quotaUnitSelection'] = $form_state['values']['quotaUnitSelection'];
     }
 
   $api->setCrawlerConfiguration($entity, $conf);
