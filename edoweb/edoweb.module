@@ -2202,7 +2202,7 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
       ),
       '#default_value' => "keine",
       '#default_value' => @$conf['deepness'] == null ? '0' : @$conf['deepness'] == '0' ? '0' : @$conf['deepness'],
-      '#weight' => 90,
+      '#weight' => 80,
       '#required' => FALSE,
     );
     
@@ -2212,7 +2212,7 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
     '#title' => t('Maximale Größe eines Crawls'),
     '#default_value' => @$conf['maxCrawlSize'],
     '#required' => FALSE,
-    '#weight' => 92,
+    '#weight' => 82,
   );
   
   
@@ -2226,7 +2226,7 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
     ),
     '#default_value' => @$conf['quotaUnitSelection'] == null ? 'MB' : @$conf['quotaUnitSelection'],
     '#required' => FALSE,
-    '#weight' => 93,
+    '#weight' => 87,
   );
   }
   
