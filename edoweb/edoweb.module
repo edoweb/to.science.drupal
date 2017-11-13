@@ -2210,7 +2210,7 @@ function edoweb_basic_crawler_form($form, &$form_state, $entity) {
   $form['maxCrawlSize'] = array(
     '#type' => 'textfield',
     '#title' => t('Maximale Größe eines Crawls'),
-    '#default_value' => @$conf['maxCrawlSize'] == null ? '0' : @$conf['maxCrawlSize'] == '0' ? '0' : @$conf['maxCrawlSize'],
+    '#default_value' => @$conf['maxCrawlSize'],
     '#required' => FALSE,
     '#weight' => 85,
   );
