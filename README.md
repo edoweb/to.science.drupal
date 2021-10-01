@@ -33,8 +33,8 @@ at <http://localhost/drupal/?q=admin/config/edoweb/storage>.
 
 # Localization
 
-To localize your Drupal installation, first activate the "Localize"
-module. Then download your preffered language from
+To localize your Drupal installation, first activate the "Locale"
+module. Then download your preferred language from
 <https://localize.drupal.org/translate/languages/>. Navigate to
 <http://localhost/drupal?q=admin/config/regional/translate/import>,
 choose your language file and the language to import it into. To
